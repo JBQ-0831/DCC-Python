@@ -4,6 +4,10 @@ A universal Python development tool designed to support **all DCC applications**
 
 一个通用的 Python 开发工具，旨在支持**所有具备 Python 脚本能力的 DCC 软件**。
 
+本项目开发参考了开源仓库 [vscode-maya-python](https://codeberg.org/nils-soderman/vscode-maya-python)，在此由衷感谢作者 [@nils-soderman](https://nilssoderman.com/) 的开源分享与贡献。
+
+This project refers to the open-source repository [vscode-maya-python](https://codeberg.org/nils-soderman/vscode-maya-python). Special thanks to [@nils-soderman](https://nilssoderman.com/) for his open-source work and contributions.
+
 **Currently tested with / 目前经过测试的 DCC：**
 - Maya
 - 3ds Max

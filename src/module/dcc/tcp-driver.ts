@@ -179,8 +179,12 @@ export class TCPDriver implements IDCCDriver {
         return true;
     }
     
-    async installDebugpy(): Promise<boolean | undefined> {
-        const result = await this.sendRequest('install_debugpy', {});
+    async installDebugpy(pipIndexUrl?: string): Promise<boolean | undefined> {
+        const params: Record<string, any> = {};
+        if (pipIndexUrl) {
+            params.pip_index_url = pipIndexUrl;
+        }
+        const result = await this.sendRequest('install_debugpy', params);
         
         // 显示 pip 安装日志到输出频道
         if (result && result.output.length > 0) {

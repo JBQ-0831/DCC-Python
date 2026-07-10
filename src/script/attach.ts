@@ -49,7 +49,10 @@ export async function attach() {
             return;
         }
 
-        const installationSuccess = await driver.installDebugpy();
+        const config = utils.getExtensionConfig();
+        const pipIndexUrl = config.get<string>('debug.pipIndexUrl', '');
+        
+        const installationSuccess = await driver.installDebugpy(pipIndexUrl);
         if (!installationSuccess) {
             return;
         }
