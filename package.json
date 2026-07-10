@@ -147,16 +147,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://codeberg.org/nils-soderman/vscode-maya-python"
+    "url": "https://github.com/JBQ-0831/DCC-Python.git"
   },
   "bugs": {
-    "url": "https://codeberg.org/nils-soderman/vscode-maya-python/issues"
+    "url": "https://github.com/JBQ-0831/DCC-Python/issues"
   },
   "author": {
-    "name": "Nils Söderman",
-    "url": "https://nilssoderman.com"
+    "name": "蒋不青",
+    "url": "https://github.com/JBQ-0831"
   },
-  "qna": "https://codeberg.org/nils-soderman/vscode-maya-python/issues",
+  "qna": "https://github.com/JBQ-0831/DCC-Python/issues",
   "license": "SEE LICENSE IN LICENSE",
   "icon": "media/icon.png",
   "scripts": {

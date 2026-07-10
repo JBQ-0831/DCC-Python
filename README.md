@@ -1,8 +1,19 @@
 # DCC Python (Visual Studio Code)
 
-Tools to assist when writing Python code for Maya, 3ds Max, Substance Painter, and other DCC applications.
+A universal Python development tool designed to support **all DCC applications** with Python scripting capabilities.
 
-为 Maya、3ds Max、Substance Painter 等 DCC 软件编写 Python 代码的辅助工具。
+一个通用的 Python 开发工具，旨在支持**所有具备 Python 脚本能力的 DCC 软件**。
+
+**Currently tested with / 目前经过测试的 DCC：**
+- Maya
+- 3ds Max
+- Substance Painter
+
+**Other DCC applications will be supported gradually / 其他 DCC 将逐步支持。**
+
+> **Requirement / 要求:** All features require Python 3.7+ in the DCC environment. The codebase uses modern Python 3 syntax (f-strings, type annotations, etc.) and debugpy requires Python 3.7+. DCC applications running Python below this version will encounter errors.
+>
+> **所有功能需要 DCC 环境中 Python 版本 ≥ 3.7**。代码库使用现代 Python 3 语法（f-string、类型注解等），且 debugpy 需要 Python 3.7+。运行低于此版本 Python 的 DCC 软件将报错。
 
 ---
 
@@ -134,14 +145,14 @@ All settings can be found in VS Code Settings under "DCC Python".
 
 | DCC | Support Status / 支持状态 |
 |---|---|
-| Maya | Full support / 完全支持 |
-| 3ds Max | Full support / 完全支持 |
-| Substance Painter | Full support / 完全支持 |
-| Other DCC with Python | Generic support / 通用支持 |
+| Maya | ✅ Tested / 已测试 |
+| 3ds Max | ✅ Tested / 已测试 |
+| Substance Painter | ✅ Tested / 已测试 |
+| Other DCC with Python | 🔄 Coming soon / 即将支持 |
 
-> Debugging requires Python 3.7+ (debugpy dependency)
+> **Python Requirement / Python 版本要求:** All features require Python 3.7+ in the DCC environment. The codebase uses modern Python 3 syntax (f-strings, type annotations, etc.) and debugpy requires Python 3.7+. DCC applications running Python below this version will encounter errors.
 >
-> 调试功能需要 Python 3.7+（依赖 debugpy）
+> **所有功能需要 DCC 环境中 Python 版本 ≥ 3.7**。代码库使用现代 Python 3 语法（f-string、类型注解等），且 debugpy 需要 Python 3.7+。运行低于此版本 Python 的 DCC 软件将报错。
 
 ---
 
@@ -162,6 +173,6 @@ All commands can be accessed via the Command Palette (<kbd>Ctrl</kbd> + <kbd>Shi
 
 ## Contact / 联系方式
 
-If you have any questions, suggestions, or encounter issues, please feel free to [open an issue](https://codeberg.org/nils-soderman/vscode-maya-python/issues).
+If you have any questions, suggestions, or encounter issues, please feel free to [open an issue](https://github.com/JBQ-0831/DCC-Python/issues).
 
-如有任何问题、建议或遇到 Bug，请[提交 Issue](https://codeberg.org/nils-soderman/vscode-maya-python/issues)。
+如有任何问题、建议或遇到 Bug，请[提交 Issue](https://github.com/JBQ-0831/DCC-Python/issues)。
