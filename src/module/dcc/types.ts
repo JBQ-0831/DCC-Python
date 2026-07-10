@@ -29,7 +29,7 @@ export interface IDCCDriver {
     reloadModules(workspaceFolders: string[]): Promise<IExecutionResult | null>;
     
     importDebugpy(): Promise<boolean | undefined>;
-    installDebugpy(): Promise<boolean | undefined>;
+    installDebugpy(pipIndexUrl?: string): Promise<boolean | undefined>;
     startDebugServer(port: number): Promise<boolean>;
     
     getHost(): string;

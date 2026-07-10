@@ -136,6 +136,12 @@
             "default": true,
             "description": "Whether to debug only user-written code",
             "scope": "resource"
+          },
+          "dcc-python.debug.pipIndexUrl": {
+            "type": "string",
+            "default": "",
+            "description": "Optional pip index URL for faster package installation (e.g., https://pypi.tuna.tsinghua.edu.cn/simple)",
+            "scope": "resource"
           }
         }
       }
