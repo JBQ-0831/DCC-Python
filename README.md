@@ -1,0 +1,167 @@
+# DCC Python (Visual Studio Code)
+
+Tools to assist when writing Python code for Maya, 3ds Max, Substance Painter, and other DCC applications.
+
+为 Maya、3ds Max、Substance Painter 等 DCC 软件编写 Python 代码的辅助工具。
+
+---
+
+## Features / 功能
+
+### Execute Code / 执行代码
+
+Run code in your DCC directly from within the editor:
+
+在 VS Code 中直接执行代码并发送到 DCC 软件：
+
+<!-- TODO: 替换为实际演示动图 -->
+
+**Command / 命令:** `DCC Python: Execute`
+**Keyboard Shortcut / 快捷键:** <kbd>Ctrl</kbd> + <kbd>Enter</kbd>
+
+The selected text will be executed. If nothing is selected, the entire document will be executed.
+
+执行选中的代码片段；若未选中任何内容，则执行整个文档。
+
+---
+
+### Attach Debugger / 附加调试器
+
+Attach VS Code to your DCC to debug scripts, set breakpoints and step through code.
+
+将 VS Code 附加到 DCC 软件，支持设置断点、单步调试代码。
+
+<!-- TODO: 替换为实际演示动图 -->
+
+**Command / 命令:** `DCC Python: Attach Debugger`
+
+When the debugger is attached, press <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to execute code — breakpoints will be hit automatically. `print()` output is redirected to the VS Code Debug Console.
+
+调试器附加后，按 <kbd>Ctrl</kbd> + <kbd>Enter</kbd> 执行代码将自动触发断点。`print()` 输出会重定向到 VS Code 的调试控制台。
+
+---
+
+### Reload Modules / 重载模块
+
+Reload Python modules from your workspace without restarting the DCC application. Useful for iterative development.
+
+无需重启 DCC 软件即可重载工作区中的 Python 模块，方便迭代开发。
+
+**Command / 命令:** `DCC Python: Reload Modules`
+
+---
+
+### Execute Entry Point / 执行入口点
+
+Execute a predefined entry point script with a single command. Useful for running a project's `main.py` or a scene setup script.
+
+一键执行预定义的入口点脚本，适用于运行项目的 `main.py` 或场景初始化脚本。
+
+**Command / 命令:** `DCC Python: Execute Entry Point`
+
+**Configuration / 配置项:**
+
+| Setting / 配置项 | Description / 说明 | Default / 默认值 |
+|---|---|---|
+| `dcc-python.execute.entryPoint` | Entry point script path (absolute or relative to workspace) / 入口脚本路径（绝对路径或相对路径） | `""` |
+| `dcc-python.execute.entryPointReload` | Reload workspace modules before executing / 执行前重载工作区模块 | `true` |
+
+---
+
+## Getting Started / 快速开始
+
+### 1. Install the Extension / 安装扩展
+
+Install the "DCC Python" extension from the VS Code Marketplace.
+
+从 VS Code 应用商店安装 "DCC Python" 扩展。
+
+### 2. Start the Server in Your DCC / 在 DCC 中启动服务端
+
+Press <kbd>Ctrl</kbd> + <kbd>Enter</kbd> in VS Code — an error prompt will appear in the bottom-right corner. Click the "Copy" button, then paste and run the code in your DCC's script editor.
+
+在 VS Code 中按 <kbd>Ctrl</kbd> + <kbd>Enter</kbd>，右下角会弹出提示框，点击"复制启动代码"按钮，然后粘贴到 DCC 的脚本编辑器中运行即可。
+
+<!-- TODO: 替换为实际演示动图 -->
+
+### 3. Execute Code / 执行代码
+
+Open a Python file in VS Code, press <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to send the code to your DCC.
+
+在 VS Code 中打开 Python 文件，按 <kbd>Ctrl</kbd> + <kbd>Enter</kbd> 将代码发送到 DCC 执行。
+
+---
+
+## Configuration / 配置
+
+All settings can be found in VS Code Settings under "DCC Python".
+
+所有配置项可在 VS Code 设置中搜索 "DCC Python" 找到。
+
+### Server / 服务端
+
+| Setting / 配置项 | Description / 说明 | Default / 默认值 |
+|---|---|---|
+| `dcc-python.server.host` | DCC server host address / DCC 服务端主机地址 | `127.0.0.1` |
+| `dcc-python.server.port` | DCC server port / DCC 服务端端口 | `7002` |
+
+### Execute / 执行
+
+| Setting / 配置项 | Description / 说明 | Default / 默认值 |
+|---|---|---|
+| `dcc-python.execute.showOutput` | Show output panel when executing / 执行时显示输出面板 | `true` |
+| `dcc-python.execute.clearOutput` | Clear output on each execution / 每次执行时清空输出 | `true` |
+| `dcc-python.execute.name` | Value of `__name__` when executing / 执行时 `__name__` 的值 | `__main__` |
+| `dcc-python.execute.entryPoint` | Entry point script path / 入口脚本路径 | `""` |
+| `dcc-python.execute.entryPointReload` | Reload modules before entry point / 执行入口点前重载模块 | `true` |
+
+### Debugger / 调试器
+
+| Setting / 配置项 | Description / 说明 | Default / 默认值 |
+|---|---|---|
+| `dcc-python.debug.port` | Debugger connection port / 调试器连接端口 | `7012` |
+| `dcc-python.debug.justMyCode` | Debug only user-written code / 仅调试用户代码 | `true` |
+
+### Environment / 环境
+
+| Setting / 配置项 | Description / 说明 | Default / 默认值 |
+|---|---|---|
+| `dcc-python.environment.addWorkspaceToPath` | Add workspace path to Python `sys.path` / 将工作区路径添加到 Python `sys.path` | `true` |
+
+---
+
+## Supported DCC Applications / 支持的 DCC 软件
+
+| DCC | Support Status / 支持状态 |
+|---|---|
+| Maya | Full support / 完全支持 |
+| 3ds Max | Full support / 完全支持 |
+| Substance Painter | Full support / 完全支持 |
+| Other DCC with Python | Generic support / 通用支持 |
+
+> Debugging requires Python 3.7+ (debugpy dependency)
+>
+> 调试功能需要 Python 3.7+（依赖 debugpy）
+
+---
+
+## Commands / 命令
+
+All commands can be accessed via the Command Palette (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>P</kbd>).
+
+所有命令可通过命令面板（<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>P</kbd>）访问。
+
+| Command / 命令 | Description / 说明 | Shortcut / 快捷键 |
+|---|---|---|
+| `DCC Python: Execute` | Execute selected code or entire file / 执行选中代码或整个文件 | <kbd>Ctrl</kbd> + <kbd>Enter</kbd> |
+| `DCC Python: Execute Entry Point` | Execute the predefined entry point script / 执行预定义入口脚本 | — |
+| `DCC Python: Reload Modules` | Reload workspace Python modules / 重载工作区 Python 模块 | — |
+| `DCC Python: Attach Debugger` | Attach VS Code debugger to DCC / 附加 VS Code 调试器到 DCC | — |
+
+---
+
+## Contact / 联系方式
+
+If you have any questions, suggestions, or encounter issues, please feel free to [open an issue](https://codeberg.org/nils-soderman/vscode-maya-python/issues).
+
+如有任何问题、建议或遇到 Bug，请[提交 Issue](https://codeberg.org/nils-soderman/vscode-maya-python/issues)。
