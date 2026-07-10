@@ -25,7 +25,17 @@ Run code in your DCC directly from within the editor:
 
 在 VS Code 中直接执行代码并发送到 DCC 软件：
 
-<!-- TODO: 替换为实际演示动图 -->
+**Maya:**
+
+![Demo of executing code in Maya](media/demo/demo_exec_in_maya.webp)
+
+**3ds Max:**
+
+![Demo of executing code in 3ds Max](media/demo/demo_exec_in_max.webp)
+
+**Substance Painter:**
+
+![Demo of executing code in Substance Painter](media/demo/demo_exec_in_sp.webp)
 
 **Command / 命令:** `DCC Python: Execute`
 **Keyboard Shortcut / 快捷键:** <kbd>Ctrl</kbd> + <kbd>Enter</kbd>
@@ -42,7 +52,17 @@ Attach VS Code to your DCC to debug scripts, set breakpoints and step through co
 
 将 VS Code 附加到 DCC 软件，支持设置断点、单步调试代码。
 
-<!-- TODO: 替换为实际演示动图 -->
+**Maya:**
+
+![Demo of debugging in Maya](media/demo/demo_attach_in_maya.webp)
+
+**3ds Max:**
+
+![Demo of debugging in 3ds Max](media/demo/demo_attach_in_max.webp)
+
+**Substance Painter:**
+
+![Demo of debugging in Substance Painter](media/demo/demo_attach_in_sp.webp)
 
 **Command / 命令:** `DCC Python: Attach Debugger`
 
@@ -91,9 +111,7 @@ Install the "DCC Python" extension from the VS Code Marketplace.
 
 Press <kbd>Ctrl</kbd> + <kbd>Enter</kbd> in VS Code — an error prompt will appear in the bottom-right corner. Click the "Copy" button, then paste and run the code in your DCC's script editor.
 
-在 VS Code 中按 <kbd>Ctrl</kbd> + <kbd>Enter</kbd>，右下角会弹出提示框，点击"复制启动代码"按钮，然后粘贴到 DCC 的脚本编辑器中运行即可。
-
-<!-- TODO: 替换为实际演示动图 -->
+在 VS Code 中按 <kbd>Ctrl</kbd> + <kbd>Enter</kbd>，右下角会弹出提示框，点击"Copy"按钮，然后粘贴到 DCC 的脚本编辑器中运行即可。
 
 ### 3. Execute Code / 执行代码
 

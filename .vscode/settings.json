@@ -15,5 +15,16 @@
     },
     // Turn off tsc task auto detection since we have the necessary tasks as npm scripts
     "typescript.tsc.autoDetect": "off",
-    "python.analysis.typeCheckingMode": "standard"
+    "python.analysis.typeCheckingMode": "standard",
+    "python.analysis.extraPaths": [
+        "C:/Program Files/Autodesk/3ds Max 2024/Python",
+        "C:/Program Files/Adobe/Adobe Substance 3D Painter/resources/python/modules",
+        "C:/Users/yifn/MAYA_2022_DEVKIT/devkit/other/Python27/pymel/extras/completion/pyi"
+    ],
+    "python.autoComplete.extraPaths": [
+        "C:/Program Files/Autodesk/3ds Max 2024/Python",
+        "C:/Program Files/Adobe/Adobe Substance 3D Painter/resources/python/modules",
+        "C:/Users/yifn/MAYA_2022_DEVKIT/devkit/other/Python27/pymel/extras/completion/pyi"
+    ],
+
 }

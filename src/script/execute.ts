@@ -81,7 +81,7 @@ async function executeFile(fileUri: vscode.Uri, execOrigin: string) {
 
 /**
  * 提示用户在 DCC 中运行 start.py 启动服务端
- * 提供"复制启动代码"按钮，点击后把多行格式化代码写入剪贴板
+ * 提供"Copy"按钮，点击后把多行格式化代码写入剪贴板
  */
 export async function promptStartServer(): Promise<void> {
     const dccManager = DCCManager.getInstance();
@@ -109,16 +109,16 @@ export async function promptStartServer(): Promise<void> {
         '""")'
     ].join('\n');
     
-    const shortMsg = '请在你的 DCC 软件中运行 Python 代码启动服务端（点击"复制启动代码"按钮）';
+    const shortMsg = 'Please run the Python code in your DCC software to start the server (click the "Copy" button).请在你的 DCC 软件中运行 Python 代码启动服务端（点击"Copy"按钮）';
     
     const result = await vscode.window.showErrorMessage(
         shortMsg,
-        '复制启动代码'
+        'Copy'
     );
     
-    if (result === '复制启动代码') {
+    if (result === 'Copy') {
         await vscode.env.clipboard.writeText(startCode);
-        vscode.window.showInformationMessage('启动代码已复制到剪贴板，请粘贴到 DCC 中运行');
+        vscode.window.showInformationMessage('The startup code has been copied to your clipboard. Please paste it into DCC to run.启动代码已复制到剪贴板，请粘贴到 DCC 中运行');
     }
     
     Logger.error(`${shortMsg}\n\n${startCode}`);

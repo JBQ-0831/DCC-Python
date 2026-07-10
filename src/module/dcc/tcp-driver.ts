@@ -201,6 +201,16 @@ export class TCPDriver implements IDCCDriver {
     
     async startDebugServer(port: number): Promise<boolean> {
         const result = await this.sendRequest('start_debugpy', { port });
+        
+        if (result && result.output.length > 0) {
+            Logger.info('=== debugpy 调试日志 ===');
+            for (const line of result.output) {
+                if (line.trim()) {
+                    Logger.info(line);
+                }
+            }
+        }
+        
         return result?.success ?? false;
     }
     
