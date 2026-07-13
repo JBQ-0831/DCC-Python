@@ -4,6 +4,7 @@
  * 支持：
  * - execute_file：接收外部传入的文件路径，调用 DCC driver 执行
  * - execute_code：接收外部传入的代码字符串，写入临时文件后调用 DCC driver 执行
+ * - reload_modules：重载工作区模块
  */
 
 import * as fs from 'fs';
@@ -26,7 +27,46 @@ export async function handleRequest(request: Request): Promise<Response> {
         return handleExecuteCode(request);
     }
 
+    if (request.method === 'reload_modules') {
+        return handleReloadModules(request);
+    }
+
     return buildErrorResponse(request.id, `Unknown method: ${request.method}`);
+}
+
+
+async function handleReloadModules(request: Request): Promise<Response> {
+    const dccManager = DCCManager.getInstance();
+    const driver = dccManager.getCurrentDriver();
+    if (!driver) {
+        return buildErrorResponse(request.id, 'No DCC driver available. Please start the DCC server first.');
+    }
+
+    const workspaceFolders: string[] = request.params.workspace_folders || [];
+
+    Logger.info(`[VSCodeServer] reload_modules: ${workspaceFolders.join(', ')}`);
+
+    const response = await driver.reloadModules(workspaceFolders);
+
+    if (response === null) {
+        return buildErrorResponse(request.id, 'Failed to reload modules: DCC server is not connected.');
+    }
+
+    if (response.output.length > 0) {
+        for (const line of response.output) {
+            if (line !== '\n') {
+                Logger.info(line);
+            }
+        }
+    }
+
+    return {
+        id: request.id,
+        result: {
+            success: response.success,
+            output: response.output
+        }
+    };
 }
 
 

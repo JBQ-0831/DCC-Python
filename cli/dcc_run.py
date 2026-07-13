@@ -135,6 +135,14 @@ def cmd_file(args):
         print_result(result, args.plain)
         return 3
 
+    # 如果指定了 --reload，先重载文件所在目录的模块
+    if args.reload:
+        file_dir = os.path.dirname(file_path)
+        reload_result = _do_reload(host, port, timeout, [file_dir])
+        if not reload_result["success"]:
+            print_result(reload_result, args.plain)
+            return get_exit_code(reload_result)
+
     request = {
         "id": "file",
         "method": "execute_file",
@@ -150,6 +158,13 @@ def cmd_code(args):
     """执行代码字符串"""
     host, port, timeout = get_config(args)
 
+    # 如果指定了 --reload，先重载当前工作目录的模块
+    if args.reload:
+        reload_result = _do_reload(host, port, timeout, [os.getcwd()])
+        if not reload_result["success"]:
+            print_result(reload_result, args.plain)
+            return get_exit_code(reload_result)
+
     request = {
         "id": "code",
         "method": "execute_code",
@@ -162,6 +177,17 @@ def cmd_code(args):
     result = parse_response(response)
     print_result(result, args.plain)
     return get_exit_code(result)
+
+
+def _do_reload(host, port, timeout, workspace_folders):
+    """发送重载模块请求，返回结果字典"""
+    request = {
+        "id": "reload",
+        "method": "reload_modules",
+        "params": {"workspace_folders": workspace_folders}
+    }
+    response = send_request(host, port, timeout, request)
+    return parse_response(response)
 
 
 def cmd_stdin(args):
@@ -227,11 +253,26 @@ def main():
 
     file_parser = subparsers.add_parser("file", help="Execute a Python file")
     file_parser.add_argument("path", help="Path to the Python file")
+    file_parser.add_argument(
+        "--reload", "-r",
+        action="store_true",
+        help="Reload workspace modules before executing"
+    )
 
     code_parser = subparsers.add_parser("code", help="Execute a Python code string")
     code_parser.add_argument("source", help="Python source code")
+    code_parser.add_argument(
+        "--reload", "-r",
+        action="store_true",
+        help="Reload workspace modules before executing"
+    )
 
     stdin_parser = subparsers.add_parser("stdin", help="Execute Python code from stdin")
+    stdin_parser.add_argument(
+        "--reload", "-r",
+        action="store_true",
+        help="Reload workspace modules before executing"
+    )
 
     ping_parser = subparsers.add_parser("ping", help="Check if the VS Code server is reachable")
 
