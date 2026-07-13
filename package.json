@@ -46,6 +46,11 @@
         "command": "dcc-python.attach",
         "title": "Attach Debugger",
         "enablement": "editorLangId==python"
+      },
+      {
+        "category": "DCC Python",
+        "command": "dcc-python.installCli",
+        "title": "Install CLI"
       }
     ],
     "keybindings": [
@@ -141,6 +146,25 @@
             "type": "string",
             "default": "",
             "description": "Optional pip index URL for faster package installation (e.g., https://pypi.tuna.tsinghua.edu.cn/simple)",
+            "scope": "resource"
+          }
+        }
+      },
+      {
+        "title": "VS Code Server",
+        "properties": {
+          "dcc-python.vscodeServer.enabled": {
+            "type": "boolean",
+            "default": false,
+            "description": "Enable the internal socket server in VS Code to receive external execute_file requests",
+            "scope": "resource"
+          },
+          "dcc-python.vscodeServer.port": {
+            "type": "number",
+            "default": 7005,
+            "minimum": 1024,
+            "maximum": 49152,
+            "description": "The port number where the VS Code internal socket server listens",
             "scope": "resource"
           }
         }
