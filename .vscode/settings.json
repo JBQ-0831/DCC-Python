@@ -2,12 +2,16 @@
 {
     "files.exclude": {
         "out": true,
-        "dist": true,
         "node_modules": true,
         "LICENSE": true,
-        ".vscode": true,
+        "**/.vscode": false,
+        "**/dist": true,
         "**/__pycache__": true,
-        "*.vsix": true
+        "*.vsix": true,
+        "**/.venv":true,
+        "**/.trae":true,
+        "**/.pytest_cache":true,
+        "**/.forgejo":true,
     },
     "search.exclude": {
         // "out": true, 
@@ -19,12 +23,19 @@
     "python.analysis.extraPaths": [
         "C:/Program Files/Autodesk/3ds Max 2024/Python",
         "C:/Program Files/Adobe/Adobe Substance 3D Painter/resources/python/modules",
+        "C:/Program Files/Adobe/Adobe Substance 3D Designer/resources/python",
         "C:/Users/yifn/MAYA_2022_DEVKIT/devkit/other/Python27/pymel/extras/completion/pyi"
     ],
     "python.autoComplete.extraPaths": [
         "C:/Program Files/Autodesk/3ds Max 2024/Python",
         "C:/Program Files/Adobe/Adobe Substance 3D Painter/resources/python/modules",
+        "C:/Program Files/Adobe/Adobe Substance 3D Designer/resources/python",
         "C:/Users/yifn/MAYA_2022_DEVKIT/devkit/other/Python27/pymel/extras/completion/pyi"
     ],
+    "python.testing.pytestArgs": [
+        "."
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true,
 
 }

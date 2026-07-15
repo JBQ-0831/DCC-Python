@@ -16,7 +16,6 @@ class MainWindow(QMainWindow):
     __obj_name = 'dcc_python_test_main_window'
     def __init__(self, controller,parent=None):
         super(MainWindow, self).__init__(parent)
-        self.setObjectName(self.__obj_name)
         self.controller = controller
         self.setWindowTitle("DCC Python Debug Test")
         central = QWidget()
@@ -28,12 +27,18 @@ class MainWindow(QMainWindow):
         self.resize(800, 600)
 
     def close_latest(self):
-        """关闭同名窗体"""
-        for w in self.parent().findChildren(QWidget, self.__obj_name):
+        """关闭同名旧窗体，跳过自身。"""
+        parent = self.parent()
+        if parent is None:
+            return
+        for w in parent.findChildren(QWidget, self.__obj_name):
             w.close()
-            print("关闭窗体：", self.__obj_name)
+            w.deleteLater()
+            print(u"关闭窗体：{}".format(self.__obj_name))
+
 
     def show(self):
         """显示窗体前，先关闭同名窗体"""
         self.close_latest()
         super(MainWindow, self).show()
+        self.setObjectName(self.__obj_name)

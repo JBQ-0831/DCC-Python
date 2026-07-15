@@ -10,6 +10,10 @@ from view.main_window import MainWindow, BaseController
 
 def get_main_window():
     try:
+        import sd
+        ctx = sd.getContext()
+        app = ctx.getSDApplication()
+        uimgr = app.getUIMgr()
         # 兼容Pyside2/Pyside6 + 对应shiboken
         try:
             from PySide2.QtWidgets import QWidget
@@ -17,8 +21,9 @@ def get_main_window():
         except ImportError:
             from PySide6.QtWidgets import QWidget
             from shiboken6 import wrapInstance
-        import maya.OpenMayaUI as omui
-        main_window = wrapInstance(int(omui.MQtUtil.mainWindow()), QWidget)
+
+        ptr = uimgr.getMainWindowPtr()
+        main_window = wrapInstance(int(ptr), QWidget)
         return main_window
     except:
         print("无法获取主窗口。maya.OpenMayaUI 不可用。")

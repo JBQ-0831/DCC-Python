@@ -1,6 +1,11 @@
 node_modules
 dist
+out
 __pycache__
+*.py[cod]
+*.egg-info
+.venv
+venv
 *.vsix
 .trae
 .forgejo

@@ -1,0 +1,347 @@
+{
+  "name": "dcc-python",
+  "displayName": "DCC Python",
+  "publisher": "JBQ",
+  "description": "Tools to assist when writing Python code for Maya, 3ds Max, substance painter, and other DCC applications",
+  "version": "2026.2.0",
+  "engines": {
+    "vscode": "^1.108.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "python",
+    "autodesk",
+    "maya",
+    "3dsmax",
+    "substance painter",
+    "maxscript",
+    "cmds",
+    "mayapy"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "category": "DCC Python",
+        "title": "Execute",
+        "command": "dcc-python.execute",
+        "enablement": "editorLangId==python"
+      },
+      {
+        "category": "DCC Python",
+        "title": "Execute Entry Point",
+        "command": "dcc-python.executeEntryPoint",
+        "enablement": "editorLangId==python"
+      },
+      {
+        "category": "DCC Python",
+        "command": "dcc-python.reloadModules",
+        "title": "Reload Modules",
+        "enablement": "editorLangId==python"
+      },
+      {
+        "category": "DCC Python",
+        "command": "dcc-python.attach",
+        "title": "Attach Debugger",
+        "enablement": "editorLangId==python"
+      },
+      {
+        "category": "DCC Python",
+        "command": "dcc-python.openDashboard",
+        "title": "Open Dashboard",
+        "icon": "$(server-environment)"
+      },
+      {
+        "category": "DCC Python",
+        "command": "dcc-python.dashboard.selectInstance",
+        "title": "Select Instance",
+        "icon": "$(check)"
+      },
+      {
+        "category": "DCC Python",
+        "command": "dcc-python.dashboard.setupMaya",
+        "title": "Setup Maya Auto-Start",
+        "icon": "./icons/maya.svg"
+      },
+      {
+        "category": "DCC Python",
+        "command": "dcc-python.dashboard.setupMax",
+        "title": "Setup 3ds Max Auto-Start",
+        "icon": "./icons/3ds-max.svg"
+      },
+      {
+        "category": "DCC Python",
+        "command": "dcc-python.dashboard.setupSP",
+        "title": "Setup Substance Painter Auto-Start",
+        "icon": "./icons/substance-painter.svg"
+      },
+      {
+        "category": "DCC Python",
+        "command": "dcc-python.dashboard.setupSD",
+        "title": "Setup Substance Designer Auto-Start",
+        "icon": "./icons/substance-designer.svg"
+      },
+      {
+        "category": "DCC Python",
+        "command": "dcc-python.dashboard.unsetupMaya",
+        "title": "Remove Maya Auto-Start",
+        "icon": "$(trash)"
+      },
+      {
+        "category": "DCC Python",
+        "command": "dcc-python.dashboard.unsetupMax",
+        "title": "Remove 3ds Max Auto-Start",
+        "icon": "$(trash)"
+      },
+      {
+        "category": "DCC Python",
+        "command": "dcc-python.dashboard.unsetupSP",
+        "title": "Remove Substance Painter Auto-Start",
+        "icon": "$(trash)"
+      },
+      {
+        "category": "DCC Python",
+        "command": "dcc-python.dashboard.unsetupSD",
+        "title": "Remove Substance Designer Auto-Start",
+        "icon": "$(trash)"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "dccPythonDashboard",
+          "name": "DCC Python"
+        }
+      ]
+    },
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "dcc-python.openDashboard",
+          "when": "true"
+        },
+        {
+          "command": "dcc-python.dashboard.setupMaya",
+          "when": "false"
+        },
+        {
+          "command": "dcc-python.dashboard.setupMax",
+          "when": "false"
+        },
+        {
+          "command": "dcc-python.dashboard.setupSP",
+          "when": "false"
+        },
+        {
+          "command": "dcc-python.dashboard.setupSD",
+          "when": "false"
+        },
+        {
+          "command": "dcc-python.dashboard.unsetupMaya",
+          "when": "false"
+        },
+        {
+          "command": "dcc-python.dashboard.unsetupMax",
+          "when": "false"
+        },
+        {
+          "command": "dcc-python.dashboard.unsetupSP",
+          "when": "false"
+        },
+        {
+          "command": "dcc-python.dashboard.unsetupSD",
+          "when": "false"
+        },
+        {
+          "command": "dcc-python.dashboard.selectInstance",
+          "when": "false"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "dcc-python.dashboard.setupMaya",
+          "when": "view == dccPythonDashboard",
+          "group": "navigation@1"
+        },
+        {
+          "command": "dcc-python.dashboard.setupMax",
+          "when": "view == dccPythonDashboard",
+          "group": "navigation@2"
+        },
+        {
+          "command": "dcc-python.dashboard.setupSP",
+          "when": "view == dccPythonDashboard",
+          "group": "navigation@3"
+        },
+        {
+          "command": "dcc-python.dashboard.setupSD",
+          "when": "view == dccPythonDashboard",
+          "group": "navigation@4"
+        },
+        {
+          "command": "dcc-python.openDashboard",
+          "when": "view == dccPythonDashboard",
+          "group": "navigation@9"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "dcc-python.dashboard.selectInstance",
+          "when": "view == dccPythonDashboard && viewItem == instance",
+          "group": "inline"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "dcc-python.execute",
+        "key": "ctrl+enter"
+      }
+    ],
+    "configuration": [
+      {
+        "order": 0,
+        "properties": {
+          "dcc-python.environment.addWorkspaceToPath": {
+            "type": "boolean",
+            "default": true,
+            "markdownDescription": "Add the workspace path(s) to the Python `sys.path`",
+            "scope": "resource"
+          },
+          "dcc-python.pythonPath": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "指定 Python 解释器的路径，用于检测 dcc-bridge 包。留空则自动检测。\n\n例如：`C:/Users/username/.local/bin/python.exe` 或 `C:/Python312/python.exe`",
+            "scope": "machine"
+          }
+        }
+      },
+      {
+        "title": "Server Configuration",
+        "properties": {
+          "dcc-python.server.host": {
+            "type": "string",
+            "default": "127.0.0.1",
+            "description": "The host name or IP address where the DCC server is running",
+            "scope": "resource"
+          },
+          "dcc-python.server.port": {
+            "type": "number",
+            "default": 7002,
+            "minimum": 1024,
+            "maximum": 49152,
+            "description": "The port number where the DCC TCP server is listening",
+            "scope": "resource"
+          }
+        }
+      },
+      {
+        "title": "Execute",
+        "properties": {
+          "dcc-python.execute.showOutput": {
+            "type": "boolean",
+            "default": true,
+            "description": "Display the output log when something is executed",
+            "scope": "resource"
+          },
+          "dcc-python.execute.clearOutput": {
+            "type": "boolean",
+            "default": true,
+            "description": "Clear output log each time somethings new is executed",
+            "scope": "resource"
+          },
+          "dcc-python.execute.name": {
+            "type": "string",
+            "default": "__main__",
+            "markdownDescription": "The value for the Python variable `__name__` whenever executing code through VS Code",
+            "scope": "resource"
+          },
+          "dcc-python.execute.entryPoint": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "The entry point script to execute when running `Maya Python: Execute Entry Point`",
+            "scope": "resource"
+          },
+          "dcc-python.execute.entryPointReload": {
+            "type": "boolean",
+            "default": true,
+            "description": "Reload workspace modules before executing the entry point",
+            "scope": "resource"
+          }
+        }
+      },
+      {
+        "title": "Debugger",
+        "properties": {
+          "dcc-python.debug.port": {
+            "type": "number",
+            "default": 7012,
+            "minimum": 1024,
+            "maximum": 49152,
+            "description": "The port number where the debugger will connect",
+            "scope": "resource"
+          },
+          "dcc-python.debug.justMyCode": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether to debug only user-written code",
+            "scope": "resource"
+          },
+          "dcc-python.debug.pipIndexUrl": {
+            "type": "string",
+            "default": "",
+            "description": "Optional pip index URL for faster package installation (e.g., https://pypi.tuna.tsinghua.edu.cn/simple)",
+            "scope": "resource"
+          }
+        }
+      }
+    ]
+  },
+  "galleryBanner": {
+    "color": "#444444",
+    "theme": "dark"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JBQ-0831/DCC-Python.git"
+  },
+  "bugs": {
+    "url": "https://github.com/JBQ-0831/DCC-Python/issues"
+  },
+  "author": {
+    "name": "蒋不青",
+    "url": "https://github.com/JBQ-0831"
+  },
+  "qna": "https://github.com/JBQ-0831/DCC-Python/issues",
+  "license": "SEE LICENSE IN LICENSE",
+  "icon": "icons/icon.png",
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "npm run check-types && npm run lint && node esbuild.js",
+    "watch": "npm-run-all -p watch:*",
+    "watch:esbuild": "node esbuild.js --watch",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "package": "npm run check-types && npm run lint && node esbuild.js --production",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "@types/vscode": "^1.108.1",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2",
+    "esbuild": "^0.27.2",
+    "eslint": "^9.39.2",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.53.1"
+  }
+}
