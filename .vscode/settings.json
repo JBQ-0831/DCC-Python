@@ -3,15 +3,14 @@
     "files.exclude": {
         "out": true,
         "node_modules": true,
-        "LICENSE": true,
+        // "LICENSE": true,
         "**/.vscode": false,
-        "**/dist": true,
+        // "**/dist": true,
         "**/__pycache__": true,
         "*.vsix": true,
         "**/.venv":true,
         "**/.trae":true,
         "**/.pytest_cache":true,
-        "**/.forgejo":true,
     },
     "search.exclude": {
         // "out": true, 

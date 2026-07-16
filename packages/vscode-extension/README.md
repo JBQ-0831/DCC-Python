@@ -1,6 +1,6 @@
 # DCC Python (Visual Studio Code)
 
-通用 Python DCC 开发工具，支持 Maya、3ds Max、Substance Painter 等具备 Python 脚本能力的 DCC 软件。
+通用 Python DCC 开发工具，支持 Maya、3ds Max、Substance Painter、Substance Designer 等具备 Python 脚本能力的 DCC 软件。
 
 ## 依赖
 
@@ -28,12 +28,17 @@ pip install dcc-bridge
 
 ### Dashboard
 
-`DCC Python: Open Dashboard` 打开资源管理器面板，列出所有运行中的 DCC 实例，可一键选择目标、配置 Maya / 3ds Max 自启动脚本。
+`DCC Python: Open Dashboard` 打开资源管理器面板，列出所有运行中的 DCC 实例：
+
+- **Select Instance**：选择当前要连接的 DCC 实例，后续 `Execute`、`Reload Modules`、`Attach Debugger` 等命令均针对该实例。
+- **4 个 Setup 按钮**：一键注入 Maya / 3ds Max / Substance Painter / Substance Designer 的自启动脚本。
+- 选中实例后可通过右键菜单移除对应 DCC 的自动启动。
 
 ## 配置
 
 | 配置项 | 说明 | 默认值 |
 |---|---|---|
+| `dcc-python.pythonPath` | 指定 Python 解释器路径，用于检测 `dcc-bridge` 包；留空则自动检测 | `""` |
 | `dcc-python.server.host` | DCC 服务地址 | `127.0.0.1` |
 | `dcc-python.server.port` | DCC 服务端口 | `7002` |
 | `dcc-python.execute.entryPoint` | 入口点脚本路径 | `""` |
@@ -47,3 +52,7 @@ cd packages/vscode-extension
 npm install
 npm run compile
 ```
+
+## 许可证
+
+本项目采用 [PolyForm Noncommercial License 1.0.0](../../LICENSE) 授权，仅供非商业用途使用。详见根目录 `LICENSE` 文件。

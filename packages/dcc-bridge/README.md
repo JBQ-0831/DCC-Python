@@ -10,6 +10,12 @@ pip install dcc-bridge
 
 安装后自动获得 `dcc` 全局命令。
 
+开发模式：
+
+```bash
+uv tool install -e packages/dcc-bridge
+```
+
 ## 快速开始
 
 ```bash
@@ -19,7 +25,7 @@ dcc setup 3dsmax
 # 2. 打开 DCC，服务自动启动
 
 # 3. 验证连接
-dcc list
+dcc status
 dcc ping
 
 # 4. 执行代码
@@ -31,7 +37,7 @@ dcc run code "print('hello from DCC')"
 ### 命令总览
 
 ```
-dcc [--version] {run, setup, unsetup, list, status, ping} ...
+dcc [--version] {run, setup, unsetup, status, ping} ...
 ```
 
 | 子命令 | 功能 |
@@ -39,7 +45,6 @@ dcc [--version] {run, setup, unsetup, list, status, ping} ...
 | `run` | 在 DCC 中执行 Python 代码或文件 |
 | `setup` | 注入 DCC 自启动脚本（配置一次，永久生效） |
 | `unsetup` | 移除 DCC 自启动脚本 |
-| `list` | 列出当前运行中的 DCC 实例 |
 | `status` | 查看桥接状态（实例列表 + 可选 ping） |
 | `ping` | 测试 DCC 桥接服务是否可达 |
 
@@ -68,7 +73,7 @@ dcc run {file, code, stdin} [target] [选项]
 | 选项 | 类型 | 默认值 | 说明 |
 |---|---|---|---|
 | `--port` | int | 自动发现 | 指定目标 DCC 服务端口 |
-| `--dcc-type` | str | 自动发现 | 指定目标 DCC 类型（`maya`、`3dsmax` 等） |
+| `--dcc-type` | str | 自动发现 | 指定目标 DCC 类型（`maya`、`3dsmax`、`substance_painter`、`substance_designer` 等） |
 | `-r`, `--reload` | flag | 否 | 执行前先重载模块（`file` 重载文件所在目录，`code`/`stdin` 重载当前工作目录） |
 | `--origin` | str | 自动生成 | 自定义 `exec_origin`，用于标识代码来源 |
 | `--plain` | flag | 否 | 输出纯文本而非 JSON |
@@ -155,7 +160,7 @@ dcc setup <dcc_type> [--version <版本号>]
 
 | 参数 | 必填 | 说明 |
 |---|---|---|
-| `dcc_type` | 是 | DCC 类型：`maya`、`3dsmax` |
+| `dcc_type` | 是 | DCC 类型：`maya`、`3dsmax`、`substance_painter`、`substance_designer` |
 | `--version` | 否 | 指定版本号。不指定时自动从注册表发现并注入所有已安装版本 |
 
 #### 示例
@@ -169,6 +174,10 @@ dcc setup maya --version 2024
 
 # 注入所有已安装的 Maya
 dcc setup maya
+
+# 注入 Substance Painter / Substance Designer
+dcc setup substance_painter
+dcc setup substance_designer
 ```
 
 #### 注入位置
@@ -177,6 +186,8 @@ dcc setup maya
 |---|---|---|
 | Maya | `~/maya/<version>/scripts/dcc_bridge_startup.py` | 在 `userSetup.py` 中追加 `import dcc_bridge_startup` |
 | 3ds Max | `~/AppData/Local/Autodesk/3dsMax/<year> - 64bit/ENU/scripts/startup/dcc_bridge_startup.py` | 无（Max 自动加载 startup 目录） |
+| Substance Painter | 应用脚本目录 | 自动启动入口注入 |
+| Substance Designer | 应用脚本目录 | 自动启动入口注入 |
 
 #### 版本发现机制
 
@@ -186,6 +197,8 @@ dcc setup maya
 |---|---|---|
 | Maya | `HKLM\SOFTWARE\Autodesk\Maya\<version>` | 子键名（如 `2022`、`2024`） |
 | 3ds Max | `HKLM\SOFTWARE\Autodesk\3dsMax\<internal_version>` | `Installdir` 值中的年份（如 `2019`、`2024`） |
+| Substance Painter | 注册表/安装路径 | 自动发现 |
+| Substance Designer | 注册表/安装路径 | 自动发现 |
 
 ---
 
@@ -207,59 +220,22 @@ dcc unsetup 3dsmax
 
 # 移除指定版本的 Maya
 dcc unsetup maya --version 2024
-```
 
----
-
-### `dcc list` — 列出运行中的实例
-
-扫描 `~/.dcc-bridge/instances/` 目录，列出所有正在运行的 DCC 桥接服务。
-
-#### 语法
-
-```
-dcc list [--plain]
-```
-
-#### 示例
-
-```bash
-# JSON 输出（默认）
-dcc list
-```
-
-```json
-[
-  {
-    "dcc_type": "3dsmax",
-    "port": 7002,
-    "dcc_version": "2024",
-    "pid": 12345,
-    "host": "127.0.0.1",
-    "started_at": "2026-07-15T10:30:00"
-  }
-]
-```
-
-```bash
-# 纯文本输出
-dcc list --plain
-```
-
-```
-3dsmax:7002 v2024 pid=12345 started=2026-07-15T10:30:00
+# 移除 Substance Painter / Substance Designer 自启动脚本
+dcc unsetup substance_painter
+dcc unsetup substance_designer
 ```
 
 ---
 
 ### `dcc status` — 查看桥接状态
 
-列出运行中的实例，并可选对指定实例执行 ping 测试。
+扫描 `~/.dcc-bridge/instances/` 目录，列出所有正在运行的 DCC 桥接服务，并可对指定实例执行 ping 测试。
 
 #### 语法
 
 ```
-dcc status [--port <端口>] [--dcc-type <类型>] [--plain]
+dcc status [--port <端口>] [--dcc-type <类型>] [--version <版本号>] [--plain]
 ```
 
 #### 示例
@@ -273,19 +249,47 @@ dcc status --port 7002
 
 # 对指定 DCC 类型执行 ping
 dcc status --dcc-type maya
+
+# 对指定版本执行 ping
+dcc status --dcc-type maya --version 2024
+
+# 纯文本输出
+dcc status --plain
 ```
 
 #### 输出格式
 
+**JSON 模式（默认）：**
+
 ```json
 {
-  "instances": [...],
+  "instances": [
+    {
+      "pid": 12345,
+      "dcc_type": "3dsmax",
+      "dcc_version": "2024",
+      "host": "127.0.0.1",
+      "port": 7002,
+      "started_at": "2026-07-15T10:30:00",
+      "python_path": "C:\\Program Files\\Autodesk\\3ds Max 2024\\python\\python.exe"
+    }
+  ],
   "count": 1,
   "ping": {
     "dcc_type": "3dsmax",
     "python_path": "C:\\Program Files\\Autodesk\\3ds Max 2024\\python\\python.exe"
   }
 }
+```
+
+未指定 `ping` 目标时，`ping` 字段不出现；ping 失败时返回 `ping_error`。
+
+**纯文本模式（`--plain`）：**
+
+```
+Running DCC instances: 1
+  3dsmax:7002 v2024
+Ping: OK - {'dcc_type': '3dsmax', 'python_path': '...'}
 ```
 
 ---
@@ -297,7 +301,7 @@ dcc status --dcc-type maya
 #### 语法
 
 ```
-dcc ping [--port <端口>] [--dcc-type <类型>] [--plain]
+dcc ping [--port <端口>] [--dcc-type <类型>] [--version <版本号>] [--plain]
 ```
 
 #### 示例
@@ -311,6 +315,9 @@ dcc ping --port 7002
 
 # 指定 DCC 类型
 dcc ping --dcc-type maya
+
+# 指定版本
+dcc ping --dcc-type maya --version 2024
 
 # 纯文本输出
 dcc ping --plain
@@ -343,9 +350,20 @@ Python path: C:\Program Files\Autodesk\3ds Max 2024\python\python.exe
 当不指定 `--port` 时，CLI 通过 `~/.dcc-bridge/instances/` 下的发现文件自动解析目标：
 
 1. 若指定 `--dcc-type`，只匹配该类型的实例
-2. 若只找到一个实例，自动连接
-3. 若找到多个实例，报错并提示用 `--port` 或 `--dcc-type` 指定
-4. 若未找到任何实例，报错并提示先启动 DCC
+2. 若指定 `--version`，进一步按版本筛选
+3. 若只找到一个实例，自动连接
+4. 若找到多个实例，报错并提示用 `--port` 或 `--dcc-type` 指定
+5. 若未找到任何实例，报错并提示先启动 DCC
+
+---
+
+## 服务发现与端口分配
+
+DCC 端 TCP 服务启动后会自动在 `~/.dcc-bridge/instances/{dcc_type}-{pid}.json` 写入发现文件，CLI 与 VS Code 插件通过读取这些文件零配置发现运行中的实例。
+
+- 发现文件命名：`{dcc_type}-{pid}.json`
+- 默认起始端口：`7002`，多实例时自动递增，避免端口冲突
+- 惰性清理：`list_instances` 会检查 PID 是否存活，已退出的 DCC 进程对应文件会被自动删除
 
 ---
 
@@ -386,4 +404,17 @@ with resolve_client(dcc_type="maya") as client:
 |---|---|---|---|
 | Maya | 完整支持 | 注册表 | `userSetup.py` + `dcc_bridge_startup.py` |
 | 3ds Max | 完整支持 | 注册表 | `scripts/startup/dcc_bridge_startup.py` |
-| Substance Painter | 保留接口 | 硬编码路径 | 待实现 |
+| Substance Painter | 支持 | 注册表/安装路径 | 自动启动入口注入 |
+| Substance Designer | 支持 | 注册表/安装路径 | 自动启动入口注入 |
+
+---
+
+## 调试集成说明
+
+`dcc_bridge.debug.start_debugpy_server` 在启动 debugpy 服务前会调用当前 DCC 适配器的 `configure_debugpy(python_path)` 方法，完成针对各 DCC 的解释器配置。`SubstanceDesignerAdapter` 会跳过默认的 `debugpy.configure` 调用，以避免 Substance Designer 在启动调试服务时触发资源扫描弹窗（该问题目前仍在持续优化中）。
+
+---
+
+## 许可证
+
+本项目采用 [PolyForm Noncommercial License 1.0.0](../../LICENSE) 授权，仅供非商业用途使用。详见根目录 `LICENSE` 文件。

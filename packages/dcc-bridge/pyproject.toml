@@ -4,10 +4,10 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dcc-bridge"
-version = "2026.2.0"
+version = "0.1"
 description = "DCC Python bridge: TCP server, CLI, and VS Code extension core for executing Python in DCC tools like Maya and 3ds Max."
 readme = "README.md"
-license = { text = "MIT" }
+license = { text = "PolyForm-Noncommercial-1.0.0" }
 requires-python = ">=3.7"
 authors = [
     { name = "DCC Python Team" },
@@ -16,7 +16,6 @@ keywords = ["dcc", "maya", "3dsmax", "substance-painter", "vscode", "cli"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",

@@ -14,12 +14,12 @@ Monorepo for DCC Python development tools.
 ```bash
 pip install dcc-bridge
 
-# 配置 Maya / 3ds Max 自启动
+# 配置 DCC 自启动（以 Maya / 3ds Max 为例）
 dcc setup maya --version 2024
 dcc setup 3dsmax
 
-# 打开 DCC 后，直接执行代码或文件
-dcc list
+# 打开 DCC 后，查看运行中的实例并执行代码或文件
+dcc status
 dcc run code "print('hello')"
 dcc run file /path/to/script.py
 ```
@@ -33,9 +33,10 @@ dcc run file /path/to/script.py
 
 ## 已测试的 DCC
 
-- Maya
-- 3ds Max
-- Substance Painter（保留接口）
+- Maya（2020+）
+- 3ds Max（2021+）
+- Substance Painter
+- Substance Designer
 
 ## 架构
 
@@ -48,8 +49,24 @@ vscode-maya-python/
 └── test/                    # 遗留的 DCC 测试脚本
 ```
 
+```
+┌─────────────────┐      TCP JSON-RPC（4 字节长度前缀）      ┌─────────────────┐
+│   VS Code 插件   │◄───────────────────────────────────────►│  DCC 内部服务    │
+│   (dcc-python)   │                                       │ (dcc-bridge)    │
+└────────┬────────┘                                       └────────┬────────┘
+         │                                                         │
+         │   自动发现：读取 ~/.dcc-bridge/instances/{dcc}-{pid}.json   │
+         └─────────────────────────────────────────────────────────┘
+```
+
 核心设计：
 
 - `dcc-bridge` 不依赖 VS Code，DCC 端服务与 CLI 共用同一套协议与适配器。
 - VS Code 插件通过 TCP 直连 DCC，不再作为 CLI 中转。
-- DCC 服务启动后自动写入发现文件，CLI 与插件可零配置发现运行中的实例。
+- DCC 服务启动后自动写入发现文件，CLI 与插件可零配置发现运行中的实例；读取时惰性检查 PID 并清理已退出进程。
+- TCP 端口从 `7002` 开始自动递增，避免同时运行多个 DCC 实例时冲突。
+- 通信协议：TCP JSON-RPC，带 4 字节长度前缀。
+
+## 许可证
+
+本项目采用 [PolyForm Noncommercial License 1.0.0](LICENSE) 授权，仅供非商业用途使用。详见根目录 `LICENSE` 文件。
