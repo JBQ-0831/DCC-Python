@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dcc-bridge"
-version = "0.1"
+version = "1.0.0"
 description = "DCC Python bridge: TCP server, CLI, and VS Code extension core for executing Python in DCC tools like Maya and 3ds Max."
 readme = "README.md"
 license = { text = "PolyForm-Noncommercial-1.0.0" }
 requires-python = ">=3.7"
 authors = [
-    { name = "DCC Python Team" },
+    { name = "Jbq" },
 ]
 keywords = ["dcc", "maya", "3dsmax", "substance-painter", "vscode", "cli"]
 classifiers = [
@@ -53,3 +53,8 @@ include = [
 dev = [
     "pytest>=7.4.4",
 ]
+[[tool.uv.index]]
+name = "testpypi"
+url = "https://test.pypi.org/simple/"
+publish-url = "https://test.pypi.org/legacy/"
+explicit = true
