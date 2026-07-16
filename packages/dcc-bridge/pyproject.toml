@@ -12,7 +12,7 @@ requires-python = ">=3.7"
 authors = [
     { name = "Jbq" },
 ]
-keywords = ["dcc", "maya", "3dsmax", "substance-painter", "vscode", "cli"]
+keywords = ["dcc", "maya", "3dsmax", "substance-painter","substance-designer", "vscode", "cli"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -36,8 +36,8 @@ dev = ["pytest"]
 dcc = "dcc_bridge.cli.main:main"
 
 [project.urls]
-Homepage = "https://github.com/yourusername/dcc-python"
-Repository = "https://github.com/yourusername/dcc-python"
+Homepage = "https://github.com/JBQ-0831/dcc-python"
+Repository = "https://github.com/JBQ-0831/dcc-python"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/dcc_bridge"]
