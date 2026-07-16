@@ -84,9 +84,16 @@ class SubstanceDesignerAdapter(DCCAdapter):
 
     def configure_debugpy(self, python_path: str) -> None:
         """
-        SubstanceDesigner 中调用 debugpy.configure(python=...) 会触发
-        SD 的资源扫描弹窗（Update report: No importer found），因此跳过
-        configure，仅使用 debugpy 默认配置。
+            SD 内置 Python 是打包冻结版（frozen modules），
+            debugpy 默认校验源码文件一致性，冻结内置库会触发断点失效警告，
+            两种解决思路：关闭冻结模块 / 跳过文件校验。
+
+            这里选择在脚本最顶部添加环境变量，提前关闭校验，从而屏蔽警告
+        Args:
+            python_path: 用于启动子进程的 Python 解释器路径
         """
-        logger = self.get_logger()
-        logger.info(f"[DEBUG] SubstanceDesigner skips debugpy.configure to avoid resource scan popup")
+        # 放在所有import最前面
+        import os
+        os.environ["PYDEVD_DISABLE_FILE_VALIDATION"] = "1"
+        import debugpy
+        debugpy.configure(python=python_path)

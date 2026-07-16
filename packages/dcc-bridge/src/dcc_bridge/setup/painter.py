@@ -11,9 +11,13 @@ import ctypes
 import os
 from ctypes import wintypes
 from typing import List, Optional
-
 from .base import DCCSetup
 
+# import sys,os
+# root = os.path.dirname(__file__)
+# if root not in sys.path:
+#     sys.path.append(root)
+# from base import DCCSetup
 
 # SP 注册表路径：默认值 = exe 完整路径，Path = 安装目录
 SP_REG_BASE = r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\Adobe Substance 3D Painter.exe"
@@ -102,3 +106,8 @@ class PainterSetup(DCCSetup):
     def get_supported_languages(self) -> List[str]:
         """SP 的脚本目录不随语言变化，只注入一份即可"""
         return ["en"]
+
+if __name__ == "__main__" :
+    ps = PainterSetup()
+    v = ps.discover_versions()
+    print(v)

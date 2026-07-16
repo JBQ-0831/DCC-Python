@@ -26,23 +26,21 @@ def get_main_window():
         main_window = wrapInstance(int(ptr), QWidget)
         return main_window
     except:
-        print("无法获取主窗口。maya.OpenMayaUI 不可用。")
+        print("无法获取主窗口。sd 不可用。")
         return None
 
-class MayaController(BaseController):
-    """Maya 控制器，重写 doit"""
+class SDController(BaseController):
+    """SD 控制器，重写 doit"""
     def doit(self):
-        print("MayaController.doit")
+        print("SDController.doit")
 
 
 def main():
     print(__file__)
     print(__name__)
-    from maya import cmds
-    cmds.warning("Hello from Maya")
 
 if __name__ == "__main__":
     # main()
-    _win = MainWindow(MayaController(),get_main_window())
+    _win = MainWindow(SDController(),get_main_window())
     _win.show()
 

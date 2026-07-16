@@ -119,6 +119,14 @@ def get_dcc_version(dcc_name: str) -> str:
             import pymxs
             version = pymxs.runtime.maxVersion()
             return str(version[0] // 1000 + 1998)  # 26000 -> 2024
+        elif dcc_name == 'substance_painter':
+            from dcc_bridge.setup.painter import PainterSetup
+            versions = PainterSetup().discover_versions()
+            return versions[0] if versions else ""
+        elif dcc_name == 'substance_designer':
+            from dcc_bridge.setup.designer import DesignerSetup
+            versions = DesignerSetup().discover_versions()
+            return versions[0] if versions else ""
     except Exception:
         pass
     return ""
