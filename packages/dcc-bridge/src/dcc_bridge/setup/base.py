@@ -354,7 +354,10 @@ else:
 
 
 def get_setup(dcc_type: str) -> Optional[DCCSetup]:
-    """根据 DCC 类型获取注入器实例"""
+    """根据 DCC 类型获取注入器实例（支持别名）"""
+    from ..dcc_types import normalize_dcc_type
+    dcc_type = normalize_dcc_type(dcc_type)
+
     if dcc_type == "maya":
         from .maya import MayaSetup
         return MayaSetup()

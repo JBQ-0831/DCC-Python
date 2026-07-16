@@ -6,6 +6,7 @@ from __future__ import annotations
 import click
 
 from .. import __version__
+from .cleanup import cleanup
 from .run import run_group
 from .setup import setup, unsetup
 from .status import ping, status
@@ -23,6 +24,7 @@ dcc.add_command(setup)
 dcc.add_command(unsetup)
 dcc.add_command(status)
 dcc.add_command(ping)
+dcc.add_command(cleanup)
 
 
 def main() -> None:
