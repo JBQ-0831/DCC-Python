@@ -14,7 +14,7 @@ from .base import DCCAdapter, Logger
 class MaxLogger(Logger):
     """3ds Max 专用日志类"""
 
-    channel = "3ds Max"
+    # channel = "3ds Max"
 
     @classmethod
     def info(cls, message: str):

@@ -14,7 +14,7 @@ from .base import DCCAdapter, Logger
 class MayaLogger(Logger):
     """Maya 专用日志类"""
 
-    channel = "Maya"
+    # channel = "Maya"
 
     @classmethod
     def info(cls, message: str):

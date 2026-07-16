@@ -226,7 +226,7 @@ class SocketServerThread(QThread):
             while self.running:
                 try:
                     conn, addr = self.server_socket.accept()
-                    self._log(f"Client connected: {addr}")
+                    # self._log(f"Client connected: {addr}")
                     threading.Thread(
                         target=self._handle_client,
                         args=(conn, addr),
@@ -318,8 +318,8 @@ class SocketServerThread(QThread):
         self.running = False
 
     def _log(self, message: str):
-        if self.logger:
-            self.logger.info(message)
+        # 日志通过 log_signal 统一输出（由 SocketServiceToggleTool 连接至 logger），
+        # 避免直接调用 logger.info 导致双重输出。
         if self.log_signal:
             self.log_signal.emit(message)
 

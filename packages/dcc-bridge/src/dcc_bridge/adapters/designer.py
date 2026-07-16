@@ -14,7 +14,7 @@ from .base import DCCAdapter, Logger
 class SubstanceDesignerLogger(Logger):
     """SubstanceDesigner 专用日志类"""
 
-    channel = "SubstanceDesigner"
+    # channel = "SubstanceDesigner"
 
     @classmethod
     def info(cls, message: str):

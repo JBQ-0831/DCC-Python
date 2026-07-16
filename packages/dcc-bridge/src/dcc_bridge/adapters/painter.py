@@ -14,7 +14,7 @@ from .base import DCCAdapter, Logger
 class SubstancePainterLogger(Logger):
     """SubstancePainter 专用日志类"""
 
-    channel = "SubstancePainter"
+    # channel = "SubstancePainter"
 
     @classmethod
     def info(cls, message: str):
