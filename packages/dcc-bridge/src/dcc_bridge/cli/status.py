@@ -14,10 +14,10 @@ from ..dcc_types import normalize_dcc_type
 
 def _target_options(func):
     """为 status/ping 添加目标解析选项（端口/类型/版本/输出格式）"""
-    func = click.option("--version", "dcc_version", type=str, default=None, help="DCC 版本过滤")(func)
-    func = click.option("--plain", is_flag=True, default=False, help="纯文本输出")(func)
-    func = click.option("--dcc-type", type=str, default=None, help="DCC 类型过滤")(func)
-    func = click.option("--port", type=int, default=None, help="目标 DCC 端口")(func)
+    func = click.option("--version", "dcc_version", type=str, default=None, help="Filter by DCC version.\nDCC 版本过滤。")(func)
+    func = click.option("--plain", is_flag=True, default=False, help="Output in plain text.\n纯文本输出。")(func)
+    func = click.option("--dcc-type", type=str, default=None, help="Filter by DCC type.\nDCC 类型过滤。")(func)
+    func = click.option("--port", type=int, default=None, help="Target DCC port.\n目标 DCC 端口。")(func)
     return func
 
 
@@ -25,7 +25,10 @@ def _target_options(func):
 @_target_options
 @click.pass_context
 def status(ctx, port, dcc_type, plain, dcc_version) -> None:
-    """显示当前 DCC 桥接状态"""
+    """Show current DCC bridge status.
+
+    显示当前 DCC 桥接状态。
+    """
     dcc_type = normalize_dcc_type(dcc_type)
     instances = discovery.list_instances()
     status_data = {
@@ -61,7 +64,10 @@ def status(ctx, port, dcc_type, plain, dcc_version) -> None:
 @_target_options
 @click.pass_context
 def ping(ctx, port, dcc_type, plain, dcc_version) -> None:
-    """Ping DCC 服务"""
+    """Ping the DCC bridge server.
+
+    Ping DCC 服务。
+    """
     dcc_type = normalize_dcc_type(dcc_type)
     try:
         client = resolve_client(dcc_type=dcc_type, port=port, version=dcc_version)

@@ -3,9 +3,9 @@
   "displayName": "DCC Python",
   "publisher": "JBQ",
   "description": "Tools to assist when writing Python code for Maya, 3ds Max, substance painter, and other DCC applications",
-  "version": "2026.2.0",
+  "version": "0.1",
   "engines": {
-    "vscode": "^1.108.0"
+    "vscode": "^1.0.0"
   },
   "categories": [
     "Other"
@@ -202,29 +202,12 @@
     ],
     "configuration": [
       {
-        "order": 0,
-        "properties": {
-          "dcc-python.environment.addWorkspaceToPath": {
-            "type": "boolean",
-            "default": true,
-            "markdownDescription": "Add the workspace path(s) to the Python `sys.path`",
-            "scope": "resource"
-          },
-          "dcc-python.pythonPath": {
-            "type": "string",
-            "default": "",
-            "markdownDescription": "指定 Python 解释器的路径，用于检测 dcc-bridge 包。留空则自动检测。\n\n例如：`C:/Users/username/.local/bin/python.exe` 或 `C:/Python312/python.exe`",
-            "scope": "machine"
-          }
-        }
-      },
-      {
         "title": "Server Configuration",
         "properties": {
           "dcc-python.server.host": {
             "type": "string",
             "default": "127.0.0.1",
-            "description": "The host name or IP address where the DCC server is running",
+            "description": "The host name or IP address where the DCC server is running.\n\nDCC 服务器运行所在的主机名或 IP 地址。",
             "scope": "resource"
           },
           "dcc-python.server.port": {
@@ -232,7 +215,7 @@
             "default": 7002,
             "minimum": 1024,
             "maximum": 49152,
-            "description": "The port number where the DCC TCP server is listening",
+            "description": "The port number where the DCC TCP server is listening.\n\nDCC TCP 服务器监听的端口号。",
             "scope": "resource"
           }
         }
@@ -240,34 +223,46 @@
       {
         "title": "Execute",
         "properties": {
+            "dcc-python.environment.addWorkspaceToPath": {
+            "type": "boolean",
+            "default": true,
+            "markdownDescription": "Add the workspace path(s) to the Python `sys.path`.\n\n将工作区路径添加到 Python 的 `sys.path` 中。",
+            "scope": "resource"
+          },
+          "dcc-python.pythonPath": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "Specify the path to the Python interpreter used to detect the dcc-bridge package. Leave empty to use the global Python interpreter.\n\n指定用于检测 dcc-bridge 包的 Python 解释器路径。留空则使用全局 Python 解释器。\n\nExamples / 示例：`C:/Users/username/.local/bin/python.exe`, `C:/Python312/python.exe`",
+            "scope": "machine"
+          },
           "dcc-python.execute.showOutput": {
             "type": "boolean",
             "default": true,
-            "description": "Display the output log when something is executed",
+            "description": "Display the output log when something is executed.\n\n执行代码时显示输出日志。",
             "scope": "resource"
           },
           "dcc-python.execute.clearOutput": {
             "type": "boolean",
             "default": true,
-            "description": "Clear output log each time somethings new is executed",
+            "description": "Clear output log each time something new is executed.\n\n每次执行新内容时清空输出日志。",
             "scope": "resource"
           },
           "dcc-python.execute.name": {
             "type": "string",
             "default": "__main__",
-            "markdownDescription": "The value for the Python variable `__name__` whenever executing code through VS Code",
+            "markdownDescription": "The value for the Python variable `__name__` whenever executing code through VS Code.\n\n通过 VS Code 执行代码时 Python 变量 `__name__` 的值。",
             "scope": "resource"
           },
           "dcc-python.execute.entryPoint": {
             "type": "string",
             "default": "",
-            "markdownDescription": "The entry point script to execute when running `Maya Python: Execute Entry Point`",
+            "markdownDescription": "The entry point script to execute when running `Maya Python: Execute Entry Point`.\n\n运行 `Maya Python: Execute Entry Point` 时要执行的入口点脚本。",
             "scope": "resource"
           },
           "dcc-python.execute.entryPointReload": {
             "type": "boolean",
             "default": true,
-            "description": "Reload workspace modules before executing the entry point",
+            "description": "Reload workspace modules before executing the entry point.\n\n执行入口点脚本前重新加载工作区模块。",
             "scope": "resource"
           }
         }
@@ -280,19 +275,19 @@
             "default": 7012,
             "minimum": 1024,
             "maximum": 49152,
-            "description": "The port number where the debugger will connect",
+            "description": "The port number where the debugger will connect.\n\n调试器将要连接的端口号。",
             "scope": "resource"
           },
           "dcc-python.debug.justMyCode": {
             "type": "boolean",
             "default": true,
-            "description": "Whether to debug only user-written code",
+            "description": "Whether to debug only user-written code.\n\n是否只调试用户编写的代码。",
             "scope": "resource"
           },
           "dcc-python.debug.pipIndexUrl": {
             "type": "string",
             "default": "",
-            "description": "Optional pip index URL for faster package installation (e.g., https://pypi.tuna.tsinghua.edu.cn/simple)",
+            "description": "Optional pip index URL for faster package installation (e.g., https://pypi.tuna.tsinghua.edu.cn/simple).\n\n可选的 pip 包索引 URL，用于加速包安装（例如：https://pypi.tuna.tsinghua.edu.cn/simple）。",
             "scope": "resource"
           }
         }

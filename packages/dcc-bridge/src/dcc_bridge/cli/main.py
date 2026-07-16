@@ -15,7 +15,17 @@ from .status import ping, status
 @click.group()
 @click.version_option(version=__version__, prog_name="dcc")
 def dcc() -> None:
-    """DCC Bridge CLI: 在 DCC 中执行 Python 代码或管理 DCC 启动注入。"""
+    """DCC Bridge CLI: Execute Python code in DCC or manage DCC startup injection.
+
+    DCC Bridge CLI：在 DCC 中执行 Python 代码或管理 DCC 启动注入。
+
+    author: Jbq
+
+    email: 714229132@qq.com
+    
+    github: https://github.com/JBQ-0831
+
+    """
 
 
 # 注册全部子命令

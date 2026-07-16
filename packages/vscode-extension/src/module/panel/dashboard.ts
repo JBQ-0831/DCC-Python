@@ -1,12 +1,8 @@
 import * as vscode from 'vscode';
-import * as childProcess from 'child_process';
-import { promisify } from 'util';
 
 import Logger from '../logging';
 import { DCCManager } from '../dcc/dcc-manager';
-
-
-const execAsync = promisify(childProcess.exec);
+import { runDCCBridgeCommand } from '../utils';
 
 
 interface DCCInstance {
@@ -52,7 +48,11 @@ export class DCCPythonDashboard implements vscode.TreeDataProvider<DashboardItem
 
     private async _loadInstances(): Promise<void> {
         try {
-            const { stdout } = await execAsync('dcc status', { timeout: 5000 });
+            const result = await runDCCBridgeCommand(['status'], { timeout: 5000 });
+            if (result.code !== 0) {
+                throw new Error(result.stderr || `exit code ${result.code}`);
+            }
+            const { stdout } = result;
             const parsed = JSON.parse(stdout);
             // dcc status 返回 { instances: [...], count: N }
             if (parsed && typeof parsed === 'object' && 'instances' in parsed) {
@@ -221,16 +221,20 @@ export function registerDashboardCommands(context: vscode.ExtensionContext) {
 
 
 async function runSetupCommand(dccType: string, unsetup: boolean = false) {
-    const cmd = unsetup ? `dcc unsetup ${dccType}` : `dcc setup ${dccType}`;
+    const args = unsetup ? ['unsetup', dccType] : ['setup', dccType];
+    const cmdText = `dcc ${args.join(' ')}`;
     try {
-        const { stdout, stderr } = await execAsync(cmd, { timeout: 30000 });
-        if (stderr) {
-            Logger.warning(stderr);
+        const result = await runDCCBridgeCommand(args, { timeout: 30000 });
+        if (result.code !== 0) {
+            throw new Error(result.stderr || `exit code ${result.code}`);
         }
-        Logger.info(stdout);
-        vscode.window.showInformationMessage(`${cmd} 执行完成`);
+        if (result.stderr) {
+            Logger.warning(result.stderr);
+        }
+        Logger.info(result.stdout);
+        vscode.window.showInformationMessage(`${cmdText} 执行完成`);
     } catch (error) {
-        const message = `${cmd} 执行失败: ${error}`;
+        const message = `${cmdText} 执行失败: ${error}`;
         Logger.error(message);
         vscode.window.showErrorMessage(message);
     }

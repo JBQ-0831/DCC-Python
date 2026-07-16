@@ -52,10 +52,13 @@ def _discover_setup_classes() -> List[Type[DCCSetup]]:
 
 
 @click.command(name="cleanup")
-@click.option("--yes", "-y", is_flag=True, help="跳过确认提示")
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation prompt.\n跳过确认提示。")
 @click.pass_context
 def cleanup(ctx, yes: bool) -> None:
-    """清理 dcc-bridge 数据与自启动脚本（卸载前使用）"""
+    """Clean up dcc-bridge data and auto-startup scripts (use before uninstall).
+
+    清理 dcc-bridge 数据与自启动脚本（卸载前使用）。
+    """
     user_data_dir = get_user_data_dir()
 
     # 先发现所有 setup 子类，用于确认提示

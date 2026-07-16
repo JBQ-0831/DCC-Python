@@ -21,14 +21,14 @@ def _do_reload(client: DCCClient, workspace_folders: list) -> dict:
 
 def _run_common_options(func):
     """为 run 子命令添加公共选项（端口/类型/版本/重载/输出等）"""
-    func = click.option("--timeout", type=float, default=30.0, help="连接超时秒数")(func)
-    func = click.option("--json", "as_json", is_flag=True, default=False, help="JSON 格式输出")(func)
-    func = click.option("--plain", is_flag=True, default=False, help="纯文本输出")(func)
-    func = click.option("--origin", type=str, default=None, help="执行来源标识")(func)
-    func = click.option("-r", "--reload", "reload", is_flag=True, default=False, help="执行前重载模块")(func)
-    func = click.option("--dcc-type", type=str, default=None, help="DCC 类型 (maya/3dsmax)")(func)
-    func = click.option("--version", "dcc_version", type=str, default=None, help="DCC 版本过滤 (如 2022/2024)")(func)
-    func = click.option("--port", type=int, default=None, help="目标 DCC 端口")(func)
+    func = click.option("--timeout", type=float, default=30.0, help="Connection timeout in seconds.\n连接超时秒数。")(func)
+    func = click.option("--json", "as_json", is_flag=True, default=False, help="Output in JSON format.\nJSON 格式输出。")(func)
+    func = click.option("--plain", is_flag=True, default=False, help="Output in plain text.\n纯文本输出。")(func)
+    func = click.option("--origin", type=str, default=None, help="Execution origin identifier.\n执行来源标识。")(func)
+    func = click.option("-r", "--reload", "reload", is_flag=True, default=False, help="Reload modules before execution.\n执行前重载模块。")(func)
+    func = click.option("--dcc-type", type=str, default=None, help="DCC type (maya/3dsmax/substance_painter/substance_designer).\nDCC 类型 (maya/3dsmax/substance_painter/substance_designer)。")(func)
+    func = click.option("--version", "dcc_version", type=str, default=None, help="Filter by DCC version (e.g. 2022/2024).\nDCC 版本过滤（如 2022/2024）。")(func)
+    func = click.option("--port", type=int, default=None, help="Target DCC port.\n目标 DCC 端口。")(func)
     return func
 
 
@@ -49,7 +49,10 @@ def _execute_code_in_client(ctx, client, code, origin, plain, reload, reload_dir
 
 @click.group(name="run")
 def run_group() -> None:
-    """在 DCC 中执行 Python 代码或文件"""
+    """Execute Python code or files in DCC.
+
+    在 DCC 中执行 Python 代码或文件。
+    """
 
 
 @run_group.command(name="file")
@@ -57,7 +60,10 @@ def run_group() -> None:
 @_run_common_options
 @click.pass_context
 def run_file(ctx, target, port, dcc_type, reload, origin, plain, as_json, timeout, dcc_version) -> None:
-    """执行本地 Python 文件"""
+    """Execute a local Python file.
+
+    执行本地 Python 文件。
+    """
     dcc_type = normalize_dcc_type(dcc_type)
     file_path = os.path.abspath(target)
 
@@ -95,7 +101,10 @@ def run_file(ctx, target, port, dcc_type, reload, origin, plain, as_json, timeou
 @_run_common_options
 @click.pass_context
 def run_code(ctx, target, port, dcc_type, reload, origin, plain, as_json, timeout, dcc_version) -> None:
-    """执行代码字符串"""
+    """Execute a Python code string.
+
+    执行代码字符串。
+    """
     dcc_type = normalize_dcc_type(dcc_type)
     try:
         client = resolve_client(dcc_type=dcc_type, port=port, version=dcc_version, timeout=timeout)
@@ -109,7 +118,10 @@ def run_code(ctx, target, port, dcc_type, reload, origin, plain, as_json, timeou
 @_run_common_options
 @click.pass_context
 def run_stdin(ctx, port, dcc_type, reload, origin, plain, as_json, timeout, dcc_version) -> None:
-    """从标准输入读取代码并执行"""
+    """Read code from stdin and execute.
+
+    从标准输入读取代码并执行。
+    """
     dcc_type = normalize_dcc_type(dcc_type)
     source = sys.stdin.read()
     try:

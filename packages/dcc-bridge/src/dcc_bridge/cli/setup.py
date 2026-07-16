@@ -41,17 +41,23 @@ def _run_setup_action(ctx, dcc_type, dcc_version, action):
 
 @click.command(name="setup")
 @click.argument("dcc_type")
-@click.option("--version", "dcc_version", default=None, help="指定 DCC 版本（不指定则处理所有支持的版本）")
+@click.option("--version", "dcc_version", default=None, help="Specify DCC version (processes all supported versions if omitted).\n指定 DCC 版本（不指定则处理所有支持的版本）。")
 @click.pass_context
 def setup(ctx, dcc_type, dcc_version) -> None:
-    """注入 DCC 自启动脚本"""
+    """Inject DCC auto-startup scripts.
+
+    注入 DCC 自启动脚本。
+    """
     _run_setup_action(ctx, dcc_type, dcc_version, "setup")
 
 
 @click.command(name="unsetup")
 @click.argument("dcc_type")
-@click.option("--version", "dcc_version", default=None, help="指定 DCC 版本")
+@click.option("--version", "dcc_version", default=None, help="Specify DCC version.\n指定 DCC 版本。")
 @click.pass_context
 def unsetup(ctx, dcc_type, dcc_version) -> None:
-    """移除 DCC 自启动脚本"""
+    """Remove DCC auto-startup scripts.
+
+    移除 DCC 自启动脚本。
+    """
     _run_setup_action(ctx, dcc_type, dcc_version, "unsetup")

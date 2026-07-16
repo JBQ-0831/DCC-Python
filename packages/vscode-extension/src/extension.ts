@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import * as cp from 'child_process';
 
 import { setExtensionUri } from './module/utils';
 import { DCCManager } from './module/dcc/dcc-manager';
@@ -8,7 +7,7 @@ import * as execute from './script/execute';
 import { reloadWorkspaceModules } from './script/reload';
 import { attach } from './script/attach';
 import { DCCPythonDashboard, registerDashboardCommands } from './module/panel/dashboard';
-import { getExtensionConfig, uriExists } from './module/utils';
+import { getExtensionConfig, uriExists, resolvePythonCommand, runPythonCommand, runDCCBridgeCommand } from './module/utils';
 
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -80,7 +79,7 @@ export function deactivate() {
  */
 async function autoConnectToFirstInstance() {
     try {
-        const result = await runPythonCommand('dcc', ['status']);
+        const result = await runDCCBridgeCommand(['status'], { timeout: 5000 });
         if (result.code !== 0 || !result.stdout.trim()) {
             return;
         }
@@ -119,7 +118,7 @@ async function autoConnectToFirstInstance() {
  *
  * 检测方式（任一成功即视为已安装）：
  * 1. Python 解释器能 import dcc_bridge（适用于 pip install 安装方式）
- * 2. dcc CLI 命令可用（适用于 uv tool install 等 CLI 安装方式）
+ * 2. 通过 Python 模块执行 `python -m dcc_bridge --version`（适用于虚拟环境安装）
  *
  * 全部失败时弹出提示，引导用户安装。
  */
@@ -143,16 +142,16 @@ async function checkDCCBridgeInstallation() {
         // 命令执行失败，继续下一步
     }
 
-    // 方式二：直接检测 dcc CLI 命令是否可用
-    // （uv tool install 方式下 python import 不可用，但 dcc 命令正常工作）
+    // 方式二：通过 Python 模块方式检测 dcc-bridge
+    // 兼容虚拟环境安装（用户配置 pythonPath 后即可使用）
     try {
-        const dccResult = await runPythonCommand('dcc', ['--version']);
+        const dccResult = await runDCCBridgeCommand(['--version']);
         if (dccResult.code === 0 && dccResult.stdout.trim()) {
             Logger.info(`dcc CLI detected: ${dccResult.stdout.trim()}`);
             return;
         }
     } catch {
-        // dcc 命令也不可用
+        // dcc-bridge 模块或 dcc 命令均不可用
     }
 
     const selection = await vscode.window.showInformationMessage(
@@ -170,75 +169,4 @@ async function checkDCCBridgeInstallation() {
 }
 
 
-interface PythonCommandResult {
-    code: number;
-    stdout: string;
-    stderr: string;
-}
 
-
-/**
- * 解析要使用的 Python 命令路径
- *
- * 优先顺序：
- * 1. 用户设置 dcc-python.pythonPath
- * 2. VS Code Python 扩展的当前解释器
- * 3. 系统默认 python 命令
- */
-async function resolvePythonCommand(): Promise<string> {
-    // 1. 检查用户配置
-    const pythonPath = getExtensionConfig().get<string>('pythonPath', '');
-    if (pythonPath) {
-        return pythonPath;
-    }
-
-    // 2. 尝试通过 Python 扩展获取当前解释器路径
-    try {
-        const pyExt = vscode.extensions.getExtension('ms-python.python');
-        if (pyExt) {
-            const api = pyExt.isActive ? pyExt.exports : await pyExt.activate();
-            // Python 扩展 v2023+ API
-            if (api?.environments?.getActiveEnvironmentPath) {
-                const envPath = api.environments.getActiveEnvironmentPath();
-                if (envPath?.path) {
-                    return envPath.path;
-                }
-            }
-            // Python 扩展旧版 API
-            if (api?.settings?.getExecutionDetails) {
-                const execDetails = api.settings.getExecutionDetails();
-                if (execDetails?.execCommand?.length > 0) {
-                    return execDetails.execCommand[0];
-                }
-            }
-        }
-    } catch {
-        // Python 扩展不可用或 API 变更
-    }
-
-    // 3. 回退到系统默认
-    return 'python';
-}
-
-
-function runPythonCommand(pythonCmd: string, args: string[]): Promise<PythonCommandResult> {
-    return new Promise((resolve, reject) => {
-        const proc = cp.spawn(pythonCmd, args, { shell: true });
-
-        let stdout = '';
-        let stderr = '';
-
-        proc.stdout.on('data', (data: Buffer) => {
-            stdout += data.toString();
-        });
-
-        proc.stderr.on('data', (data: Buffer) => {
-            stderr += data.toString();
-        });
-
-        proc.on('error', reject);
-        proc.on('close', (code: number) => {
-            resolve({ code, stdout, stderr });
-        });
-    });
-}

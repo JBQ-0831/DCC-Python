@@ -7,7 +7,7 @@ dcc-bridge: DCC Python 桥接核心包
 
 from __future__ import annotations
 
-__version__ = "2026.2.0"
+__version__ = "0.1"
 
 from .client import DCCClient
 from .discovery import list_instances, get_instance, register_instance, unregister_instance

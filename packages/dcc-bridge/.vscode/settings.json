@@ -7,7 +7,7 @@
         // "**/.vscode": true,
         // "**/dist": true,
         "**/__pycache__": true,
-        "**/.venv":true,
+        // "**/.venv":true,
         "**/.trae":true,
         "**/.pytest_cache":true,
         "**/.forgejo":true,
