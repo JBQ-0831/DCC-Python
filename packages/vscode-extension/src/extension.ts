@@ -154,7 +154,7 @@ async function checkDCCBridgeInstallation() {
         // dcc-bridge 模块或 dcc 命令均不可用
     }
 
-    const selection = await vscode.window.showInformationMessage(
+    const selection = await vscode.window.showErrorMessage(
         "DCC Python 需要安装 dcc-bridge Python 包才能与 DCC 通信。",
         "复制安装命令",
         "不再提示"
