@@ -7,6 +7,7 @@
 
 import * as net from 'net';
 import * as crypto from 'crypto';
+import * as vscode from 'vscode';
 
 import Logger from '../logging';
 
@@ -211,6 +212,23 @@ export class TCPDriver implements IDCCDriver {
             for (const line of result.output) {
                 if (line.trim()) {
                     Logger.info(line);
+                }
+            }
+        }
+
+        // 端口被占用时提示用户修改配置
+        if (result && !result.success && result.error) {
+            const portOccupied = /can't listen|address already in use|10048/i.test(result.error);
+            if (portOccupied) {
+                const action = await vscode.window.showErrorMessage(
+                    `debugpy 端口 ${port} 已被占用，请修改配置后重试。`,
+                    '打开设置'
+                );
+                if (action === '打开设置') {
+                    vscode.commands.executeCommand(
+                        'workbench.action.openSettings',
+                        'dcc-python-toolkit.debug.port'
+                    );
                 }
             }
         }
