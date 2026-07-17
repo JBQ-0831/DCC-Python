@@ -8,7 +8,7 @@
         // "**/dist": true,
         "**/__pycache__": true,
         "*.vsix": true,
-        "**/.venv":true,
+        // "**/.venv":true,
         "**/.trae":true,
         "**/.pytest_cache":true,
     },

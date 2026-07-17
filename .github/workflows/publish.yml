@@ -1,0 +1,135 @@
+name: Publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  PYTHON_VERSION: '3.12'
+  NODE_VERSION: '22'
+
+jobs:
+  # 检测发布通道：纯数字版本 x.y.z → release，含字母（如 x.y.zb1）→ beta
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      channel: ${{ steps.version.outputs.channel }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect channel
+        id: version
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "channel=release" >> "$GITHUB_OUTPUT"
+          else
+            echo "channel=beta" >> "$GITHUB_OUTPUT"
+          fi
+
+  # 构建两个包
+  build:
+    needs: detect
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "packages/dcc-bridge/pyproject.toml"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # 验证标签版本号与两包文件一致
+      - name: Verify version consistency
+        shell: bash
+        run: |
+          NPM_VER=$(jq -r .version packages/vscode-extension/package.json)
+          UV_VER=$(grep -oP '^version = "\K[^"]+' packages/dcc-bridge/pyproject.toml)
+          TAG_VER="${{ needs.detect.outputs.version }}"
+
+          echo "Tag version:     $TAG_VER"
+          echo "NPM version:     $NPM_VER"
+          echo "UV version:      $UV_VER"
+
+          if [ "$NPM_VER" != "$TAG_VER" ] || [ "$UV_VER" != "$TAG_VER" ]; then
+            echo "ERROR: Version mismatch between tag and package files!"
+            exit 1
+          fi
+          echo "OK: All versions match ($TAG_VER)"
+
+      - name: Build Python package
+        run: uv build
+        working-directory: packages/dcc-bridge
+
+      - name: Build VS Code extension
+        shell: bash
+        run: |
+          mkdir -p dist
+          npx @vscode/vsce package --no-dependencies -o ./dist/dcc-python.vsix
+        working-directory: packages/vscode-extension
+
+      # 将构建产物传递给发布 job
+      - name: Upload dist artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: |
+            packages/dcc-bridge/dist/
+            packages/vscode-extension/dist/
+
+  # ======== Release 发布（PyPI + VS Marketplace）========
+  publish-release:
+    needs: [detect, build]
+    if: needs.detect.outputs.channel == 'release'
+    runs-on: ubuntu-latest
+    environment: Release Environments
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+
+      - name: Publish Python to PyPI
+        run: uv publish
+        working-directory: packages/dcc-bridge
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI }}
+
+      - name: Publish VS Code to VS Marketplace
+        run: npx @vscode/vsce publish --packagePath ./dist/dcc-python.vsix --pat ${{ secrets.VSMARKETPLACE }}
+        working-directory: packages/vscode-extension
+
+  # ======== Beta 发布（TestPyPI + Open VSX）========
+  publish-beta:
+    needs: [detect, build]
+    if: needs.detect.outputs.channel == 'beta'
+    runs-on: ubuntu-latest
+    environment: Test Environments
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+
+      - name: Publish Python to TestPyPI
+        run: uv publish --index testpypi
+        working-directory: packages/dcc-bridge
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.TESTPYPI }}
+
+      - name: Publish VS Code to Open VSX
+        run: npx ovsx publish ./dist/dcc-python.vsix --pat ${{ secrets.OPENVSX }}
+        working-directory: packages/vscode-extension

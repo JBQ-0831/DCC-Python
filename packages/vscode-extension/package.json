@@ -3,9 +3,9 @@
   "displayName": "DCC Python",
   "publisher": "JBQ",
   "description": "Tools to assist when writing Python code for Maya, 3ds Max, substance painter, and other DCC applications",
-  "version": "1.0.0",
+  "version": "1.2.0-b1",
   "engines": {
-    "vscode": "^1.000.0"
+    "vscode": "^1.108.0"
   },
   "categories": [
     "Other"
@@ -21,6 +21,9 @@
     "mayapy"
   ],
   "main": "./dist/extension.js",
+  "activationEvents": [
+    "onLanguage:python"
+  ],
   "contributes": {
     "commands": [
       {
@@ -223,7 +226,7 @@
       {
         "title": "Execute",
         "properties": {
-            "dcc-python.environment.addWorkspaceToPath": {
+          "dcc-python.environment.addWorkspaceToPath": {
             "type": "boolean",
             "default": true,
             "markdownDescription": "Add the workspace path(s) to the Python `sys.path`.\n\n将工作区路径添加到 Python 的 `sys.path` 中。",

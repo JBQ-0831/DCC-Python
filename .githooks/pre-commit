@@ -1,0 +1,67 @@
+#!/usr/bin/env python3
+"""
+Pre-commit hook: 检查 npm 和 uv 两个包的版本号是否一致。
+
+提交前自动检查 packages/vscode-extension/package.json 和
+packages/dcc-bridge/pyproject.toml 中的 version 字段是否一致，
+不一致则拒绝提交。
+"""
+import json
+import re
+import sys
+from pathlib import Path
+
+# 仓库根目录（.githooks 的父目录）
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def get_npm_version() -> str:
+    pkg_json = REPO_ROOT / "packages" / "vscode-extension" / "package.json"
+    if not pkg_json.exists():
+        print(f"ERROR: {pkg_json} 不存在")
+        sys.exit(1)
+    with open(pkg_json, encoding="utf-8") as f:
+        data = json.load(f)
+    return data["version"]
+
+
+def get_uv_version() -> str:
+    pyproject = REPO_ROOT / "packages" / "dcc-bridge" / "pyproject.toml"
+    if not pyproject.exists():
+        print(f"ERROR: {pyproject} 不存在")
+        sys.exit(1)
+    with open(pyproject, encoding="utf-8") as f:
+        content = f.read()
+    match = re.search(r'^version\s*=\s*"([^"]+)"', content, re.MULTILINE)
+    if not match:
+        print(f"ERROR: 无法在 {pyproject} 中找到 version 字段")
+        sys.exit(1)
+    return match.group(1)
+
+
+def main():
+    npm_ver = get_npm_version()
+    uv_ver = get_uv_version()
+
+    if npm_ver != uv_ver:
+        print("ERROR: 版本号不一致！")
+        print(f"  packages/vscode-extension/package.json:  {npm_ver}")
+        print(f"  packages/dcc-bridge/pyproject.toml:      {uv_ver}")
+        print()
+        print("请先将两个包的版本号更新为一致再提交。")
+        print("推荐命令（在项目根目录执行）：")
+        print()
+        print("  # 同步递增 patch")
+        print("  npm -C packages\\vscode-extension version patch --no-git-tag-version")
+        print("  uv --project packages\\dcc-bridge version --bump patch")
+        print()
+        print("  # 或指定固定版本")
+        print("  npm -C packages\\vscode-extension version 1.2.0 --no-git-tag-version")
+        print("  uv --project packages\\dcc-bridge version 1.2.0")
+        sys.exit(1)
+
+    print(f"OK: 两个包版本号一致（{npm_ver}）")
+
+
+if __name__ == "__main__":
+    main()
