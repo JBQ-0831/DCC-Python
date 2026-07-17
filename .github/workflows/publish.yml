@@ -128,9 +128,15 @@ jobs:
         shell: bash
         run: find packages -name "*.whl" -o -name "*.tar.gz" 2>/dev/null || echo "No dist files found"
 
+      - name: Prepare dist files for uv publish
+        shell: bash
+        run: |
+          mkdir -p dist
+          find packages -name "*.whl" -o -name "*.tar.gz" -exec cp {} dist/ \;
+          ls -la dist/
+
       - name: Publish Python to PyPI
         run: uv publish
-        working-directory: packages/dcc-bridge
         env:
           UV_PUBLISH_TOKEN: ${{ secrets.PYPI }}
 
@@ -163,9 +169,15 @@ jobs:
         shell: bash
         run: find packages -name "*.whl" -o -name "*.tar.gz" 2>/dev/null || echo "No dist files found"
 
+      - name: Prepare dist files for uv publish
+        shell: bash
+        run: |
+          mkdir -p dist
+          find packages -name "*.whl" -o -name "*.tar.gz" -exec cp {} dist/ \;
+          ls -la dist/
+
       - name: Publish Python to TestPyPI
         run: uv publish --index testpypi
-        working-directory: packages/dcc-bridge
         env:
           UV_PUBLISH_TOKEN: ${{ secrets.TESTPYPI }}
 
