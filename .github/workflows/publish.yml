@@ -125,8 +125,13 @@ jobs:
           name: dist
 
       - name: Publish Python to PyPI
-        run: uv publish
-        working-directory: packages/dcc-bridge
+        shell: bash
+        run: |
+          echo "=== dist files ==="
+          find packages/dcc-bridge/dist -type f 2>/dev/null || echo "No files in packages/dcc-bridge/dist"
+          find dist -type f 2>/dev/null || echo "No files in dist"
+          echo "=== publishing ==="
+          uv publish packages/dcc-bridge/dist/*
         env:
           UV_PUBLISH_TOKEN: ${{ secrets.PYPI }}
 
@@ -156,8 +161,13 @@ jobs:
           name: dist
 
       - name: Publish Python to TestPyPI
-        run: uv publish --publish-url https://test.pypi.org/legacy/
-        working-directory: packages/dcc-bridge
+        shell: bash
+        run: |
+          echo "=== dist files ==="
+          find packages/dcc-bridge/dist -type f 2>/dev/null || echo "No files in packages/dcc-bridge/dist"
+          find dist -type f 2>/dev/null || echo "No files in dist"
+          echo "=== publishing ==="
+          uv publish --publish-url https://test.pypi.org/legacy/ packages/dcc-bridge/dist/*
         env:
           UV_PUBLISH_TOKEN: ${{ secrets.TESTPYPI }}
 
