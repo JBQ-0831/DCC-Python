@@ -136,7 +136,7 @@ jobs:
           ls -la dist/
 
       - name: Publish Python to PyPI
-        run: uv publish
+        run: uv publish --project packages/dcc-bridge
         env:
           UV_PUBLISH_TOKEN: ${{ secrets.PYPI }}
 
@@ -177,7 +177,7 @@ jobs:
           ls -la dist/
 
       - name: Publish Python to TestPyPI
-        run: uv publish --index testpypi
+        run: uv publish --project packages/dcc-bridge --index testpypi
         env:
           UV_PUBLISH_TOKEN: ${{ secrets.TESTPYPI }}
 
