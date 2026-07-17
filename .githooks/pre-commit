@@ -39,9 +39,14 @@ def get_uv_version() -> str:
     return match.group(1)
 
 
+def _normalize_version(ver: str) -> str:
+    """归一化版本号，处理 npm 自动加横杠的问题（1.2.0-b1 → 1.2.0b1）"""
+    return re.sub(r'(\d)-([a-zA-Z])', r'\1\2', ver)
+
+
 def main():
-    npm_ver = get_npm_version()
-    uv_ver = get_uv_version()
+    npm_ver = _normalize_version(get_npm_version())
+    uv_ver = _normalize_version(get_uv_version())
 
     if npm_ver != uv_ver:
         print("ERROR: 版本号不一致！")

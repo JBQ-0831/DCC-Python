@@ -54,7 +54,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      # 验证标签版本号与两包文件一致
+      # 验证标签版本号与两包文件一致（归一化处理 npm 自动加横杠的问题）
       - name: Verify version consistency
         shell: bash
         run: |
@@ -62,11 +62,16 @@ jobs:
           UV_VER=$(grep -oP '^version = "\K[^"]+' packages/dcc-bridge/pyproject.toml)
           TAG_VER="${{ needs.detect.outputs.version }}"
 
-          echo "Tag version:     $TAG_VER"
-          echo "NPM version:     $NPM_VER"
-          echo "UV version:      $UV_VER"
+          # 归一化：去掉数字与字母之间的横杠（1.2.0-b1 → 1.2.0b1）
+          NORM_NPM=$(echo "$NPM_VER" | sed 's/\([0-9]\)-\([a-zA-Z]\)/\1\2/g')
+          NORM_UV=$(echo "$UV_VER" | sed 's/\([0-9]\)-\([a-zA-Z]\)/\1\2/g')
+          NORM_TAG=$(echo "$TAG_VER" | sed 's/\([0-9]\)-\([a-zA-Z]\)/\1\2/g')
 
-          if [ "$NPM_VER" != "$TAG_VER" ] || [ "$UV_VER" != "$TAG_VER" ]; then
+          echo "Tag version:     $TAG_VER (normalized: $NORM_TAG)"
+          echo "NPM version:     $NPM_VER (normalized: $NORM_NPM)"
+          echo "UV version:      $UV_VER (normalized: $NORM_UV)"
+
+          if [ "$NORM_NPM" != "$NORM_TAG" ] || [ "$NORM_UV" != "$NORM_TAG" ]; then
             echo "ERROR: Version mismatch between tag and package files!"
             exit 1
           fi
