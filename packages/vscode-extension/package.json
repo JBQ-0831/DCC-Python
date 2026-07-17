@@ -1,6 +1,6 @@
 {
-  "name": "dcc-python",
-  "displayName": "DCC Python",
+  "name": "dcc-python-toolkit",
+  "displayName": "DCC Python ToolKit",
   "publisher": "JBQ",
   "description": "Tools to assist when writing Python code for Maya, 3ds Max, substance painter, and other DCC applications",
   "version": "1.0.1",
@@ -27,86 +27,86 @@
   "contributes": {
     "commands": [
       {
-        "category": "DCC Python",
+        "category": "DCC Python ToolKit",
         "title": "Execute",
-        "command": "dcc-python.execute",
+        "command": "dcc-python-toolkit.execute",
         "enablement": "editorLangId==python"
       },
       {
-        "category": "DCC Python",
+        "category": "DCC Python ToolKit",
         "title": "Execute Entry Point",
-        "command": "dcc-python.executeEntryPoint",
+        "command": "dcc-python-toolkit.executeEntryPoint",
         "enablement": "editorLangId==python"
       },
       {
-        "category": "DCC Python",
-        "command": "dcc-python.reloadModules",
+        "category": "DCC Python ToolKit",
+        "command": "dcc-python-toolkit.reloadModules",
         "title": "Reload Modules",
         "enablement": "editorLangId==python"
       },
       {
-        "category": "DCC Python",
-        "command": "dcc-python.attach",
+        "category": "DCC Python ToolKit",
+        "command": "dcc-python-toolkit.attach",
         "title": "Attach Debugger",
         "enablement": "editorLangId==python"
       },
       {
-        "category": "DCC Python",
-        "command": "dcc-python.openDashboard",
+        "category": "DCC Python ToolKit",
+        "command": "dcc-python-toolkit.openDashboard",
         "title": "Open Dashboard",
         "icon": "$(server-environment)"
       },
       {
-        "category": "DCC Python",
-        "command": "dcc-python.dashboard.selectInstance",
+        "category": "DCC Python ToolKit",
+        "command": "dcc-python-toolkit.dashboard.selectInstance",
         "title": "Select Instance",
         "icon": "$(check)"
       },
       {
-        "category": "DCC Python",
-        "command": "dcc-python.dashboard.setupMaya",
+        "category": "DCC Python ToolKit",
+        "command": "dcc-python-toolkit.dashboard.setupMaya",
         "title": "Setup Maya Auto-Start",
         "icon": "./icons/maya.svg"
       },
       {
-        "category": "DCC Python",
-        "command": "dcc-python.dashboard.setupMax",
+        "category": "DCC Python ToolKit",
+        "command": "dcc-python-toolkit.dashboard.setupMax",
         "title": "Setup 3ds Max Auto-Start",
         "icon": "./icons/3ds-max.svg"
       },
       {
-        "category": "DCC Python",
-        "command": "dcc-python.dashboard.setupSP",
+        "category": "DCC Python ToolKit",
+        "command": "dcc-python-toolkit.dashboard.setupSP",
         "title": "Setup Substance Painter Auto-Start",
         "icon": "./icons/substance-painter.svg"
       },
       {
-        "category": "DCC Python",
-        "command": "dcc-python.dashboard.setupSD",
+        "category": "DCC Python ToolKit",
+        "command": "dcc-python-toolkit.dashboard.setupSD",
         "title": "Setup Substance Designer Auto-Start",
         "icon": "./icons/substance-designer.svg"
       },
       {
-        "category": "DCC Python",
-        "command": "dcc-python.dashboard.unsetupMaya",
+        "category": "DCC Python ToolKit",
+        "command": "dcc-python-toolkit.dashboard.unsetupMaya",
         "title": "Remove Maya Auto-Start",
         "icon": "$(trash)"
       },
       {
-        "category": "DCC Python",
-        "command": "dcc-python.dashboard.unsetupMax",
+        "category": "DCC Python ToolKit",
+        "command": "dcc-python-toolkit.dashboard.unsetupMax",
         "title": "Remove 3ds Max Auto-Start",
         "icon": "$(trash)"
       },
       {
-        "category": "DCC Python",
-        "command": "dcc-python.dashboard.unsetupSP",
+        "category": "DCC Python ToolKit",
+        "command": "dcc-python-toolkit.dashboard.unsetupSP",
         "title": "Remove Substance Painter Auto-Start",
         "icon": "$(trash)"
       },
       {
-        "category": "DCC Python",
-        "command": "dcc-python.dashboard.unsetupSD",
+        "category": "DCC Python ToolKit",
+        "command": "dcc-python-toolkit.dashboard.unsetupSD",
         "title": "Remove Substance Designer Auto-Start",
         "icon": "$(trash)"
       }
@@ -115,83 +115,83 @@
       "explorer": [
         {
           "id": "dccPythonDashboard",
-          "name": "DCC Python"
+          "name": "DCC Python ToolKit"
         }
       ]
     },
     "menus": {
       "commandPalette": [
         {
-          "command": "dcc-python.openDashboard",
+          "command": "dcc-python-toolkit.openDashboard",
           "when": "true"
         },
         {
-          "command": "dcc-python.dashboard.setupMaya",
+          "command": "dcc-python-toolkit.dashboard.setupMaya",
           "when": "false"
         },
         {
-          "command": "dcc-python.dashboard.setupMax",
+          "command": "dcc-python-toolkit.dashboard.setupMax",
           "when": "false"
         },
         {
-          "command": "dcc-python.dashboard.setupSP",
+          "command": "dcc-python-toolkit.dashboard.setupSP",
           "when": "false"
         },
         {
-          "command": "dcc-python.dashboard.setupSD",
+          "command": "dcc-python-toolkit.dashboard.setupSD",
           "when": "false"
         },
         {
-          "command": "dcc-python.dashboard.unsetupMaya",
+          "command": "dcc-python-toolkit.dashboard.unsetupMaya",
           "when": "false"
         },
         {
-          "command": "dcc-python.dashboard.unsetupMax",
+          "command": "dcc-python-toolkit.dashboard.unsetupMax",
           "when": "false"
         },
         {
-          "command": "dcc-python.dashboard.unsetupSP",
+          "command": "dcc-python-toolkit.dashboard.unsetupSP",
           "when": "false"
         },
         {
-          "command": "dcc-python.dashboard.unsetupSD",
+          "command": "dcc-python-toolkit.dashboard.unsetupSD",
           "when": "false"
         },
         {
-          "command": "dcc-python.dashboard.selectInstance",
+          "command": "dcc-python-toolkit.dashboard.selectInstance",
           "when": "false"
         }
       ],
       "view/title": [
         {
-          "command": "dcc-python.dashboard.setupMaya",
+          "command": "dcc-python-toolkit.dashboard.setupMaya",
           "when": "view == dccPythonDashboard",
           "group": "navigation@1"
         },
         {
-          "command": "dcc-python.dashboard.setupMax",
+          "command": "dcc-python-toolkit.dashboard.setupMax",
           "when": "view == dccPythonDashboard",
           "group": "navigation@2"
         },
         {
-          "command": "dcc-python.dashboard.setupSP",
+          "command": "dcc-python-toolkit.dashboard.setupSP",
           "when": "view == dccPythonDashboard",
           "group": "navigation@3"
         },
         {
-          "command": "dcc-python.dashboard.setupSD",
+          "command": "dcc-python-toolkit.dashboard.setupSD",
           "when": "view == dccPythonDashboard",
           "group": "navigation@4"
         },
         {
-          "command": "dcc-python.openDashboard",
+          "command": "dcc-python-toolkit.openDashboard",
           "when": "view == dccPythonDashboard",
           "group": "navigation@9"
         }
       ],
       "view/item/context": [
         {
-          "command": "dcc-python.dashboard.selectInstance",
+          "command": "dcc-python-toolkit.dashboard.selectInstance",
           "when": "view == dccPythonDashboard && viewItem == instance",
           "group": "inline"
         }
@@ -199,7 +199,7 @@
     },
     "keybindings": [
       {
-        "command": "dcc-python.execute",
+        "command": "dcc-python-toolkit.execute",
         "key": "ctrl+enter"
       }
     ],
@@ -207,13 +207,13 @@
       {
         "title": "Server Configuration",
         "properties": {
-          "dcc-python.server.host": {
+          "dcc-python-toolkit.server.host": {
             "type": "string",
             "default": "127.0.0.1",
             "description": "The host name or IP address where the DCC server is running.\n\nDCC 服务器运行所在的主机名或 IP 地址。",
             "scope": "resource"
           },
-          "dcc-python.server.port": {
+          "dcc-python-toolkit.server.port": {
             "type": "number",
             "default": 7002,
             "minimum": 1024,
@@ -226,43 +226,43 @@
       {
         "title": "Execute",
         "properties": {
-          "dcc-python.environment.addWorkspaceToPath": {
+          "dcc-python-toolkit.environment.addWorkspaceToPath": {
             "type": "boolean",
             "default": true,
             "markdownDescription": "Add the workspace path(s) to the Python `sys.path`.\n\n将工作区路径添加到 Python 的 `sys.path` 中。",
             "scope": "resource"
           },
-          "dcc-python.pythonPath": {
+          "dcc-python-toolkit.pythonPath": {
             "type": "string",
             "default": "",
             "markdownDescription": "Specify the path to the Python interpreter used to detect the dcc-bridge package. Leave empty to use the global Python interpreter.\n\n指定用于检测 dcc-bridge 包的 Python 解释器路径。留空则使用全局 Python 解释器。\n\nExamples / 示例：`C:/Users/username/.local/bin/python.exe`, `C:/Python312/python.exe`",
             "scope": "machine"
           },
-          "dcc-python.execute.showOutput": {
+          "dcc-python-toolkit.execute.showOutput": {
             "type": "boolean",
             "default": true,
             "description": "Display the output log when something is executed.\n\n执行代码时显示输出日志。",
             "scope": "resource"
           },
-          "dcc-python.execute.clearOutput": {
+          "dcc-python-toolkit.execute.clearOutput": {
             "type": "boolean",
             "default": true,
             "description": "Clear output log each time something new is executed.\n\n每次执行新内容时清空输出日志。",
             "scope": "resource"
           },
-          "dcc-python.execute.name": {
+          "dcc-python-toolkit.execute.name": {
             "type": "string",
             "default": "__main__",
             "markdownDescription": "The value for the Python variable `__name__` whenever executing code through VS Code.\n\n通过 VS Code 执行代码时 Python 变量 `__name__` 的值。",
             "scope": "resource"
           },
-          "dcc-python.execute.entryPoint": {
+          "dcc-python-toolkit.execute.entryPoint": {
             "type": "string",
             "default": "",
             "markdownDescription": "The entry point script to execute when running `Maya Python: Execute Entry Point`.\n\n运行 `Maya Python: Execute Entry Point` 时要执行的入口点脚本。",
             "scope": "resource"
           },
-          "dcc-python.execute.entryPointReload": {
+          "dcc-python-toolkit.execute.entryPointReload": {
             "type": "boolean",
             "default": true,
             "description": "Reload workspace modules before executing the entry point.\n\n执行入口点脚本前重新加载工作区模块。",
@@ -273,7 +273,7 @@
       {
         "title": "Debugger",
         "properties": {
-          "dcc-python.debug.port": {
+          "dcc-python-toolkit.debug.port": {
             "type": "number",
             "default": 7012,
             "minimum": 1024,
@@ -281,13 +281,13 @@
             "description": "The port number where the debugger will connect.\n\n调试器将要连接的端口号。",
             "scope": "resource"
           },
-          "dcc-python.debug.justMyCode": {
+          "dcc-python-toolkit.debug.justMyCode": {
             "type": "boolean",
             "default": true,
             "description": "Whether to debug only user-written code.\n\n是否只调试用户编写的代码。",
             "scope": "resource"
           },
-          "dcc-python.debug.pipIndexUrl": {
+          "dcc-python-toolkit.debug.pipIndexUrl": {
             "type": "string",
             "default": "",
             "description": "Optional pip index URL for faster package installation (e.g., https://pypi.tuna.tsinghua.edu.cn/simple).\n\n可选的 pip 包索引 URL，用于加速包安装（例如：https://pypi.tuna.tsinghua.edu.cn/simple）。",

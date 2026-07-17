@@ -103,7 +103,7 @@ export class DCCPythonDashboard implements vscode.TreeDataProvider<DashboardItem
             );
             item.tooltip = `PID: ${instance.pid}\n版本: ${instance.dcc_version || 'unknown'}\n启动时间: ${instance.started_at}\nPython: ${instance.python_path}`;
             item.command = {
-                command: 'dcc-python.dashboard.selectInstance',
+                command: 'dcc-python-toolkit.dashboard.selectInstance',
                 title: '选择此实例',
                 arguments: [instance]
             };
@@ -116,7 +116,7 @@ export class DCCPythonDashboard implements vscode.TreeDataProvider<DashboardItem
             vscode.TreeItemCollapsibleState.None,
             'action',
             undefined,
-            { command: 'dcc-python.openDashboard', title: '刷新' }
+            { command: 'dcc-python-toolkit.openDashboard', title: '刷新' }
         ));
 
         return Promise.resolve(items);
@@ -161,7 +161,7 @@ class DashboardItem extends vscode.TreeItem {
  */
 export function registerDashboardCommands(context: vscode.ExtensionContext) {
     context.subscriptions.push(
-        vscode.commands.registerCommand('dcc-python.dashboard.selectInstance', async (arg: DCCInstance | DashboardItem) => {
+        vscode.commands.registerCommand('dcc-python-toolkit.dashboard.selectInstance', async (arg: DCCInstance | DashboardItem) => {
             try {
                 // VS Code TreeView 点击时可能传入 DashboardItem 本身，而非 command.arguments[0]
                 const instance = arg && 'instance' in arg && arg.instance ? arg.instance : arg as DCCInstance;
@@ -192,28 +192,28 @@ export function registerDashboardCommands(context: vscode.ExtensionContext) {
                 vscode.window.showErrorMessage(message);
             }
         }),
-        vscode.commands.registerCommand('dcc-python.dashboard.setupMaya', async () => {
+        vscode.commands.registerCommand('dcc-python-toolkit.dashboard.setupMaya', async () => {
             await runSetupCommand('maya');
         }),
-        vscode.commands.registerCommand('dcc-python.dashboard.setupMax', async () => {
+        vscode.commands.registerCommand('dcc-python-toolkit.dashboard.setupMax', async () => {
             await runSetupCommand('3dsmax');
         }),
-        vscode.commands.registerCommand('dcc-python.dashboard.setupSP', async () => {
+        vscode.commands.registerCommand('dcc-python-toolkit.dashboard.setupSP', async () => {
             await runSetupCommand('substance_painter');
         }),
-        vscode.commands.registerCommand('dcc-python.dashboard.setupSD', async () => {
+        vscode.commands.registerCommand('dcc-python-toolkit.dashboard.setupSD', async () => {
             await runSetupCommand('substance_designer');
         }),
-        vscode.commands.registerCommand('dcc-python.dashboard.unsetupMaya', async () => {
+        vscode.commands.registerCommand('dcc-python-toolkit.dashboard.unsetupMaya', async () => {
             await runSetupCommand('maya', true);
         }),
-        vscode.commands.registerCommand('dcc-python.dashboard.unsetupMax', async () => {
+        vscode.commands.registerCommand('dcc-python-toolkit.dashboard.unsetupMax', async () => {
             await runSetupCommand('3dsmax', true);
         }),
-        vscode.commands.registerCommand('dcc-python.dashboard.unsetupSP', async () => {
+        vscode.commands.registerCommand('dcc-python-toolkit.dashboard.unsetupSP', async () => {
             await runSetupCommand('substance_painter', true);
         }),
-        vscode.commands.registerCommand('dcc-python.dashboard.unsetupSD', async () => {
+        vscode.commands.registerCommand('dcc-python-toolkit.dashboard.unsetupSD', async () => {
             await runSetupCommand('substance_designer', true);
         })
     );

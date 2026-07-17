@@ -28,7 +28,7 @@ export class DCCManager {
         
         context.subscriptions.push(
             vscode.workspace.onDidChangeConfiguration((event) => {
-                if (event.affectsConfiguration('dcc-python.server')) {
+                if (event.affectsConfiguration('dcc-python-toolkit.server')) {
                     this._onServerConfigChanged();
                 }
             })
@@ -78,7 +78,7 @@ export class DCCManager {
             this.statusBarItem.tooltip = 'Connected to DCC server';
         } else {
             this.statusBarItem.text = '$(circle-outline) DCC';
-            this.statusBarItem.tooltip = '点击连接 DCC 服务，或使用 DCC Python: Open Dashboard 查看运行中的实例';
+            this.statusBarItem.tooltip = '点击连接 DCC 服务，或使用 DCC Python ToolKit: Open Dashboard 查看运行中的实例';
         }
     }
     

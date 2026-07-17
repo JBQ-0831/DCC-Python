@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import * as cp from 'child_process';
 
-export const EXTENSION_ID = "dcc-python";
-export const DEBUG_SESSION_NAME = "DCC Python"; // The name of the DCC debug session
+export const EXTENSION_ID = "dcc-python-toolkit";
+export const DEBUG_SESSION_NAME = "DCC Python ToolKit"; // The name of the DCC debug session
 
 
 let _extensionUri: vscode.Uri | undefined; // Stores the absolute path to this extension's directory, set on activation
@@ -99,7 +99,7 @@ export interface PythonCommandOptions {
  * 解析要使用的 Python 命令路径
  *
  * 优先顺序：
- * 1. 用户设置 dcc-python.pythonPath
+ * 1. 用户设置 dcc-python-toolkit.pythonPath
  * 2. VS Code Python 扩展的当前解释器
  * 3. 系统默认 python 命令
  */

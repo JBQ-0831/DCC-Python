@@ -33,13 +33,13 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // 注册核心命令
     context.subscriptions.push(
-        vscode.commands.registerCommand('dcc-python.execute', () => {
+        vscode.commands.registerCommand('dcc-python-toolkit.execute', () => {
             execute.executeCurrentContext(tempDir);
         }),
-        vscode.commands.registerCommand('dcc-python.executeEntryPoint', execute.executeEntryPoint),
-        vscode.commands.registerCommand('dcc-python.reloadModules', reloadWorkspaceModules),
-        vscode.commands.registerCommand('dcc-python.attach', attach),
-        vscode.commands.registerCommand('dcc-python.openDashboard', () => {
+        vscode.commands.registerCommand('dcc-python-toolkit.executeEntryPoint', execute.executeEntryPoint),
+        vscode.commands.registerCommand('dcc-python-toolkit.reloadModules', reloadWorkspaceModules),
+        vscode.commands.registerCommand('dcc-python-toolkit.attach', attach),
+        vscode.commands.registerCommand('dcc-python-toolkit.openDashboard', () => {
             DCCPythonDashboard.createOrShow(context.extensionUri);
         })
     );

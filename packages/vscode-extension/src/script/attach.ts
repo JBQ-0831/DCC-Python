@@ -62,7 +62,7 @@ export async function attach() {
 
     const userDebugConfig = config.get<IUserDebugConfiguration>('debug');
     if (!userDebugConfig) {
-        Logger.showErrorMessage("Failed to get 'dcc-python.debug' configuration.");
+        Logger.showErrorMessage("Failed to get 'dcc-python-toolkit.debug' configuration.");
         return;
     }
 

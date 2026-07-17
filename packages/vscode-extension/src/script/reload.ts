@@ -45,7 +45,7 @@ export async function reloadWorkspaceModules() {
 
         const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 5);
         statusBarItem.text = `$(error) Failed to reload ${failedOutput.length} module${failedOutput.length === 1 ? '' : 's'}`;
-        statusBarItem.command = "dcc-python.showReloadErrorMessage";
+        statusBarItem.command = "dcc-python-toolkit.showReloadErrorMessage";
         statusBarItem.color = new vscode.ThemeColor('errorForeground');
 
         const timeout = setTimeout(() => {

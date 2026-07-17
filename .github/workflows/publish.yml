@@ -99,11 +99,11 @@ jobs:
         working-directory: packages/vscode-extension
 
       - name: Build VS Code extension
-        run: npx @vscode/vsce package --no-dependencies -o ./dist/dcc-python.vsix
+        run: npx @vscode/vsce package --no-dependencies -o ./dist/dcc-python-toolkit.vsix
         working-directory: packages/vscode-extension
 
       - name: Publish VS Code to VS Marketplace
-        run: npx @vscode/vsce publish --packagePath ./dist/dcc-python.vsix --pat ${{ secrets.VSMARKETPLACE }}
+        run: npx @vscode/vsce publish --packagePath ./dist/dcc-python-toolkit.vsix --pat ${{ secrets.VSMARKETPLACE }}
         working-directory: packages/vscode-extension
 
   # ======== Beta 发布（TestPyPI + Open VSX）========
@@ -143,9 +143,9 @@ jobs:
         working-directory: packages/vscode-extension
 
       - name: Build VS Code extension
-        run: npx @vscode/vsce package --no-dependencies -o ./dist/dcc-python.vsix
+        run: npx @vscode/vsce package --no-dependencies -o ./dist/dcc-python-toolkit.vsix
         working-directory: packages/vscode-extension
 
       - name: Publish VS Code to Open VSX
-        run: npx ovsx publish ./dist/dcc-python.vsix --pat ${{ secrets.OPENVSX }}
+        run: npx ovsx publish ./dist/dcc-python-toolkit.vsix --pat ${{ secrets.OPENVSX }}
         working-directory: packages/vscode-extension

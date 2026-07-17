@@ -17,7 +17,7 @@ let cachedEntryPointPath: vscode.Uri | undefined;
 
 export function getOutputChannel(bEnsureChannelExists = true) {
     if (!gOutputChannel && bEnsureChannelExists) {
-        gOutputChannel = vscode.window.createOutputChannel("DCC Python");
+        gOutputChannel = vscode.window.createOutputChannel("DCC Python ToolKit");
     }
 
     return gOutputChannel;
@@ -91,7 +91,7 @@ export async function promptStartServer(): Promise<void> {
     );
 
     if (result === '打开 Dashboard') {
-        await vscode.commands.executeCommand('dcc-python.openDashboard');
+        await vscode.commands.executeCommand('dcc-python-toolkit.openDashboard');
     } else if (result === '复制 setup 命令') {
         await vscode.env.clipboard.writeText('dcc setup maya    # 或 dcc setup 3dsmax');
         vscode.window.showInformationMessage('已复制 setup 命令到剪贴板');

@@ -28,8 +28,8 @@ dcc run file /path/to/script.py
 
 1. 安装 `dcc-bridge` Python 包（见上）。
 2. 在 VS Code 中加载 `packages/vscode-extension`。
-3. 使用 `DCC Python: Open Dashboard` 查看运行中的 DCC 实例并选择目标。
-4. 按 `Ctrl + Enter` 执行代码，`Ctrl + Shift + P` 搜索 `DCC Python` 查看更多命令。
+3. 使用 `DCC Python ToolKit: Open Dashboard` 查看运行中的 DCC 实例并选择目标。
+4. 按 `Ctrl + Enter` 执行代码，`Ctrl + Shift + P` 搜索 `DCC Python ToolKit` 查看更多命令。
 
 ## 已测试的 DCC
 
@@ -52,7 +52,7 @@ vscode-maya-python/
 ```
 ┌─────────────────┐      TCP JSON-RPC（4 字节长度前缀）      ┌─────────────────┐
 │   VS Code 插件   │◄───────────────────────────────────────►│  DCC 内部服务    │
-│   (dcc-python)   │                                       │ (dcc-bridge)    │
+│   (dcc-python-toolkit)   │                                       │ (dcc-bridge)    │
 └────────┬────────┘                                       └────────┬────────┘
          │                                                         │
          │   自动发现：读取 ~/.dcc-bridge/instances/{dcc}-{pid}.json   │
