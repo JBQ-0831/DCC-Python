@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dcc-bridge"
-version = "1.2.0b2"
+version = "1.2.0b3"
 description = "DCC Python bridge: TCP server, CLI, and VS Code extension core for executing Python in DCC tools like Maya and 3ds Max."
 readme = "README.md"
 license = { text = "PolyForm-Noncommercial-1.0.0" }
