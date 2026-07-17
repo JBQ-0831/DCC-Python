@@ -411,7 +411,11 @@ with resolve_client(dcc_type="maya") as client:
 
 ## 调试集成说明
 
-`dcc_bridge.debug.start_debugpy_server` 在启动 debugpy 服务前会调用当前 DCC 适配器的 `configure_debugpy(python_path)` 方法，完成针对各 DCC 的解释器配置。`SubstanceDesignerAdapter` 会跳过默认的 `debugpy.configure` 调用，以避免 Substance Designer 在启动调试服务时触发资源扫描弹窗（该问题目前仍在持续优化中）。
+`dcc_bridge.debug.start_debugpy_server` 在启动 debugpy 服务前会调用当前 DCC 适配器的 `configure_debugpy(python_path)` 方法，完成针对各 DCC 的解释器配置。
+
+`SubstanceDesignerAdapter` 在条用 `debugpy.configure` 之前增加了 `os.environ["PYDEVD_DISABLE_FILE_VALIDATION"] = "1"`，以避免debugpy无法启动侦听模式，因为 SD 内置 Python 是打包冻结版（frozen modules），debugpy 默认校验源码文件一致性，冻结内置库会触发断点失效警告，
+有两种解决思路：关闭冻结模块 / 跳过文件校验。
+这里选择在脚本最顶部添加环境变量，提前关闭校验，从而屏蔽警告。
 
 ---
 
