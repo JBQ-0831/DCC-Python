@@ -77,6 +77,11 @@ jobs:
           fi
           echo "OK: All versions match ($TAG_VER)"
 
+      - name: Install npm dependencies
+        shell: bash
+        run: npm ci
+        working-directory: packages/vscode-extension
+
       - name: Build Python package
         run: uv build
         working-directory: packages/dcc-bridge
