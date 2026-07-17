@@ -130,6 +130,19 @@ jobs:
         env:
           UV_PUBLISH_TOKEN: ${{ secrets.PYPI }}
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install npm dependencies
+        run: npm ci
+        working-directory: packages/vscode-extension
+
+      - name: Build VS Code extension
+        run: npx @vscode/vsce package --no-dependencies -o ./dist/dcc-python.vsix
+        working-directory: packages/vscode-extension
+
       - name: Publish VS Code to VS Marketplace
         run: npx @vscode/vsce publish --packagePath ./dist/dcc-python.vsix --pat ${{ secrets.VSMARKETPLACE }}
         working-directory: packages/vscode-extension
@@ -160,6 +173,19 @@ jobs:
         working-directory: packages/dcc-bridge
         env:
           UV_PUBLISH_TOKEN: ${{ secrets.TESTPYPI }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install npm dependencies
+        run: npm ci
+        working-directory: packages/vscode-extension
+
+      - name: Build VS Code extension
+        run: npx @vscode/vsce package --no-dependencies -o ./dist/dcc-python.vsix
+        working-directory: packages/vscode-extension
 
       - name: Publish VS Code to Open VSX
         run: npx ovsx publish ./dist/dcc-python.vsix --pat ${{ secrets.OPENVSX }}
