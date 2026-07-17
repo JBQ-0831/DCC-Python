@@ -120,18 +120,13 @@ jobs:
       - name: Setup uv
         uses: astral-sh/setup-uv@v5
 
-      - uses: actions/download-artifact@v4
-        with:
-          name: dist
+      - name: Build Python package
+        run: uv build
+        working-directory: packages/dcc-bridge
 
       - name: Publish Python to PyPI
-        shell: bash
-        run: |
-          echo "=== dist files ==="
-          find packages/dcc-bridge/dist -type f 2>/dev/null || echo "No files in packages/dcc-bridge/dist"
-          find dist -type f 2>/dev/null || echo "No files in dist"
-          echo "=== publishing ==="
-          uv publish packages/dcc-bridge/dist/*
+        run: uv publish
+        working-directory: packages/dcc-bridge
         env:
           UV_PUBLISH_TOKEN: ${{ secrets.PYPI }}
 
@@ -156,18 +151,13 @@ jobs:
       - name: Setup uv
         uses: astral-sh/setup-uv@v5
 
-      - uses: actions/download-artifact@v4
-        with:
-          name: dist
+      - name: Build Python package
+        run: uv build
+        working-directory: packages/dcc-bridge
 
       - name: Publish Python to TestPyPI
-        shell: bash
-        run: |
-          echo "=== dist files ==="
-          find packages/dcc-bridge/dist -type f 2>/dev/null || echo "No files in packages/dcc-bridge/dist"
-          find dist -type f 2>/dev/null || echo "No files in dist"
-          echo "=== publishing ==="
-          uv publish --publish-url https://test.pypi.org/legacy/ packages/dcc-bridge/dist/*
+        run: uv publish --publish-url https://test.pypi.org/legacy/
+        working-directory: packages/dcc-bridge
         env:
           UV_PUBLISH_TOKEN: ${{ secrets.TESTPYPI }}
 
