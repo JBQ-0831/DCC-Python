@@ -7,7 +7,7 @@ class Logger {
 
     public static get channel(): vscode.LogOutputChannel {
         if (!this._channel) {
-            this._channel = vscode.window.createOutputChannel("DCC Python Log", { log: true });
+            this._channel = vscode.window.createOutputChannel("DCC Python ToolKit Log", { log: true });
         }
         return this._channel;
     }
