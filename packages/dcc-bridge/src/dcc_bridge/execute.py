@@ -7,9 +7,9 @@ import os
 
 
 def get_exec_globals() -> dict:
-    # 每次执行都重置为干净状态，避免跨执行状态累积
-    globals()["__VsCodeVariables__"] = {
-        "__builtins__": __builtins__, "__IsVsCodeExec__": True}
+    if "__VsCodeVariables__" not in globals():
+        globals()["__VsCodeVariables__"] = {
+            "__builtins__": __builtins__, "__IsVsCodeExec__": True}
     return globals()["__VsCodeVariables__"]
 
 

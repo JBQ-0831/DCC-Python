@@ -1,6 +1,7 @@
 node_modules
 dist
 out
+.codebuddy
 __pycache__
 *.py[cod]
 *.egg-info

@@ -3,7 +3,7 @@
   "displayName": "DCC Python ToolKit",
   "publisher": "JBQ",
   "description": "Tools to assist when writing Python code for Maya, 3ds Max, substance painter, and other DCC applications",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "engines": {
     "vscode": "^1.108.0"
   },
