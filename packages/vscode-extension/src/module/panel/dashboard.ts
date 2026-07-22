@@ -110,15 +110,6 @@ export class DCCPythonDashboard implements vscode.TreeDataProvider<DashboardItem
             items.push(item);
         }
 
-        // 快捷操作
-        items.push(new DashboardItem(
-            "刷新",
-            vscode.TreeItemCollapsibleState.None,
-            'action',
-            undefined,
-            { command: 'dcc-python-toolkit.openDashboard', title: '刷新' }
-        ));
-
         return Promise.resolve(items);
     }
 
@@ -223,15 +214,35 @@ export function registerDashboardCommands(context: vscode.ExtensionContext) {
 async function runSetupCommand(dccType: string, unsetup: boolean = false) {
     const args = unsetup ? ['unsetup', dccType] : ['setup', dccType];
     const cmdText = `dcc ${args.join(' ')}`;
+    // 显示 log 输出频道，让用户看到实时进度
+    Logger.channel.show(true);
+    Logger.info(`=== ${cmdText} 开始执行 ===`);
     try {
-        const result = await runDCCBridgeCommand(args, { timeout: 30000 });
-        if (result.code !== 0) {
-            throw new Error(result.stderr || `exit code ${result.code}`);
+        // 不设超时：网络速度不可预判，避免误报超时
+        const result = await runDCCBridgeCommand(args);
+        // 逐行输出 stdout 到 log 频道
+        if (result.stdout) {
+            const lines = result.stdout.split('\n');
+            for (const line of lines) {
+                if (line.trim()) {
+                    Logger.info(line);
+                }
+            }
         }
         if (result.stderr) {
-            Logger.warning(result.stderr);
+            const lines = result.stderr.split('\n');
+            for (const line of lines) {
+                if (line.trim()) {
+                    Logger.warning(line);
+                }
+            }
         }
-        Logger.info(result.stdout);
+        if (result.code !== 0) {
+            Logger.error(`${cmdText} 执行失败 (exit code ${result.code})`);
+            vscode.window.showErrorMessage(`${cmdText} 执行失败，详情请查看 DCC Python ToolKit Log 输出频道。`);
+            return;
+        }
+        Logger.info(`=== ${cmdText} 执行完成 ===`);
         vscode.window.showInformationMessage(`${cmdText} 执行完成`);
     } catch (error) {
         const message = `${cmdText} 执行失败: ${error}`;

@@ -78,6 +78,13 @@ class MayaSetup(DCCSetup):
         lang_parts = [language] if language != "en" else []
         return os.path.join(home, "Documents", "maya", version, *lang_parts, "scripts")
 
+    def get_python_path(self, version: str) -> Optional[str]:
+        """返回 Maya 指定版本的 Python 解释器路径（mayapy.exe）"""
+        install_path = self.get_install_path(version)
+        if install_path:
+            return os.path.join(install_path, "bin", "mayapy.exe")
+        return None
+
     def _post_setup(self, script_dir: str) -> None:
         """setup 完成后在 userSetup.py 中追加 import 行"""
         _ensure_import_in_file(

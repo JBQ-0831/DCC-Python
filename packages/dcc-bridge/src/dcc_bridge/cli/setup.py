@@ -12,7 +12,7 @@ from ..dcc_types import normalize_dcc_type
 from ..setup.base import get_setup
 
 
-def _run_setup_action(ctx, dcc_type, dcc_version, action):
+def _run_setup_action(ctx, dcc_type, dcc_version, action, pip_index_url=""):
     """统一处理 setup / unsetup 的执行与错误输出
 
     action: "setup" 或 "unsetup"
@@ -26,9 +26,11 @@ def _run_setup_action(ctx, dcc_type, dcc_version, action):
         click.echo("Currently supported: maya, 3dsmax", err=True)
         ctx.exit(2)
 
-    method = setup_instance.setup if action == "setup" else setup_instance.unsetup
     try:
-        success = method(version=dcc_version)
+        if action == "setup":
+            success = setup_instance.setup(version=dcc_version, pip_index_url=pip_index_url)
+        else:
+            success = setup_instance.unsetup(version=dcc_version)
         if success:
             click.echo(f"{action.capitalize()} succeeded for {dcc_type}")
             return
@@ -40,15 +42,28 @@ def _run_setup_action(ctx, dcc_type, dcc_version, action):
 
 
 @click.command(name="setup")
-@click.argument("dcc_type")
+@click.argument("dcc_type", required=False, default=None)
 @click.option("--version", "dcc_version", default=None, help="Specify DCC version (processes all supported versions if omitted).\n指定 DCC 版本（不指定则处理所有支持的版本）。")
+@click.option("--pip-index-url", default="", help="pip 镜像源 URL，用于加速 debugpy 安装（如 https://pypi.tuna.tsinghua.edu.cn/simple）。")
 @click.pass_context
-def setup(ctx, dcc_type, dcc_version) -> None:
-    """Inject DCC auto-startup scripts.
+def setup(ctx, dcc_type, dcc_version, pip_index_url) -> None:
+    """Inject DCC auto-startup scripts and install debugpy.
 
-    注入 DCC 自启动脚本。
+    注入 DCC 自启动脚本并安装 debugpy 调试模块。
+    不指定 dcc_type 时，自动为所有已支持的 DCC 执行注入。
     """
-    _run_setup_action(ctx, dcc_type, dcc_version, "setup")
+    if dcc_type is None:
+        # 不指定 DCC 类型时，遍历所有已支持的 DCC
+        all_types = ["maya", "3dsmax", "substance_painter", "substance_designer"]
+        for dt in all_types:
+            click.echo(f"\n--- Setting up {dt} ---")
+            try:
+                _run_setup_action(ctx, dt, dcc_version, "setup", pip_index_url)
+            except SystemExit:
+                # _run_setup_action 失败时调用 ctx.exit()，继续处理下一个 DCC
+                pass
+        return
+    _run_setup_action(ctx, dcc_type, dcc_version, "setup", pip_index_url)
 
 
 @click.command(name="unsetup")

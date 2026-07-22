@@ -1,5 +1,19 @@
 # Change Log
 
+## [1.0.4] - 2026-07-21
+
+### 变更
+- 输出频道重命名：`DCC Python Log` → `DCC Python ToolKit Log`
+
+## [1.0.3] - 2026-07-21
+
+### 新增
+- debugpy 端口被占用时弹出提示框，引导用户修改配置
+
+### 变更
+- 扩展重命名为 `dcc-python-toolkit`，显示名 `DCC Python ToolKit`
+- `__init__.py` 版本号改为从 `pyproject.toml` 动态读取
+
 ## [1.0.0] - 2026-07-17
 
 ### 架构变更

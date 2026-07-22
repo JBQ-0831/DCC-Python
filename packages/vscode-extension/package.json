@@ -3,7 +3,7 @@
   "displayName": "DCC Python ToolKit",
   "publisher": "JBQ",
   "description": "Tools to assist when writing Python code for Maya, 3ds Max, substance painter, and other DCC applications",
-  "version": "1.0.4",
+  "version": "1.1.0-b1",
   "engines": {
     "vscode": "^1.108.0"
   },
@@ -182,11 +182,6 @@
           "command": "dcc-python-toolkit.dashboard.setupSD",
           "when": "view == dccPythonDashboard",
           "group": "navigation@4"
-        },
-        {
-          "command": "dcc-python-toolkit.openDashboard",
-          "when": "view == dccPythonDashboard",
-          "group": "navigation@9"
         }
       ],
       "view/item/context": [
@@ -278,19 +273,13 @@
             "default": 7012,
             "minimum": 1024,
             "maximum": 49152,
-            "description": "The port number where the debugger will connect.\n\n调试器将要连接的端口号。",
+            "description": "The port number where the debugger will connect. Note: debugpy binds the port on first attach and cannot be changed thereafter. If you modify this setting after the first attach, the new port will not take effect until the DCC is restarted.\n\n调试器将要连接的端口号。注意：debugpy 在首次 attach 时绑定端口，之后无法更改。若在首次 attach 后修改此设置，新端口需重启 DCC 后才能生效。",
             "scope": "resource"
           },
           "dcc-python-toolkit.debug.justMyCode": {
             "type": "boolean",
             "default": true,
             "description": "Whether to debug only user-written code.\n\n是否只调试用户编写的代码。",
-            "scope": "resource"
-          },
-          "dcc-python-toolkit.debug.pipIndexUrl": {
-            "type": "string",
-            "default": "",
-            "description": "Optional pip index URL for faster package installation (e.g., https://pypi.tuna.tsinghua.edu.cn/simple).\n\n可选的 pip 包索引 URL，用于加速包安装（例如：https://pypi.tuna.tsinghua.edu.cn/simple）。",
             "scope": "resource"
           }
         }

@@ -88,3 +88,10 @@ class MaxSetup(DCCSetup):
             home, "AppData", "Local", "Autodesk", "3dsMax",
             f"{version} - 64bit", lang_dir, "scripts", "startup",
         )
+
+    def get_python_path(self, version: str) -> Optional[str]:
+        """返回 3ds Max 指定版本的 Python 解释器路径（2021+ 为 Python/python.exe）"""
+        install_path = self.get_install_path(version)
+        if install_path:
+            return os.path.join(install_path, "Python", "python.exe")
+        return None

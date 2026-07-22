@@ -5,6 +5,10 @@ import subprocess
 import sys
 import os
 
+# 模块级标志：debugpy.listen() 在 DCC 进程生命周期内只能调用一次，
+# 重复调用会导致端口占用错误。VS Code 断开重连时复用已有监听。
+_debugpy_listening = False
+
 
 def get_python_path() -> str:
     """返回当前 Python 解释器路径，各 DCC 的 Adapter 可覆盖此方法"""
@@ -34,33 +38,37 @@ def install_debugpy(python_path: str, pip_index_url: str = ""):
         if result.stderr:
             sys.stderr.write(result.stderr)
 
-        if result.returncode == 0:
-            importlib.invalidate_caches()
-            print(f"[DEBUG] install_debugpy: import caches invalidated")
+        # The old implementation invoked installation via VSCode plugin calling DCC Python, which required refreshing module cache and appending debugpy path for immediate discovery.
+        # Now this function is called directly by `dcc setup`. Since dcc-bridge runs under global Python, this logic is no longer needed.
+        # After running `dcc setup`, users launch DCC afterwards, and DCC Python will be able to load debugpy normally.
 
-            if sys.executable != python_path:
-                print(f"[DEBUG] install_debugpy: sys.executable != python_path, may need to add site-packages to sys.path")
-                site_packages_path = os.path.join(os.path.dirname(python_path), '..', 'Lib', 'site-packages')
-                if os.path.exists(site_packages_path):
-                    if site_packages_path not in sys.path:
-                        sys.path.insert(0, site_packages_path)
-                        print(f"[DEBUG] install_debugpy: added site-packages to sys.path: {site_packages_path}")
-                else:
-                    print(f"[DEBUG] install_debugpy: trying to find site-packages via pip show")
-                    try:
-                        show_result = subprocess.run(
-                            [python_path, "-m", "pip", "show", "debugpy"],
-                            capture_output=True, text=True
-                        )
-                        for line in show_result.stdout.split('\n'):
-                            if line.startswith('Location:'):
-                                site_packages_path = line.split(':', 1)[1].strip()
-                                if site_packages_path not in sys.path:
-                                    sys.path.insert(0, site_packages_path)
-                                    print(f"[DEBUG] install_debugpy: added debugpy location to sys.path: {site_packages_path}")
-                                break
-                    except:
-                        print(f"[DEBUG] install_debugpy: failed to find site-packages via pip show")
+        # if result.returncode == 0:
+        #     importlib.invalidate_caches()
+        #     print("[DEBUG] install_debugpy: import caches invalidated")
+
+        #     if sys.executable != python_path:
+        #         print("[DEBUG] install_debugpy: sys.executable != python_path, may need to add site-packages to sys.path")
+        #         site_packages_path = os.path.join(os.path.dirname(python_path), '..', 'Lib', 'site-packages')
+        #         if os.path.exists(site_packages_path):
+        #             if site_packages_path not in sys.path:
+        #                 sys.path.insert(0, site_packages_path)
+        #                 print(f"[DEBUG] install_debugpy: added site-packages to sys.path: {site_packages_path}")
+        #         else:
+        #             print("[DEBUG] install_debugpy: trying to find site-packages via pip show")
+        #             try:
+        #                 show_result = subprocess.run(
+        #                     [python_path, "-m", "pip", "show", "debugpy"],
+        #                     capture_output=True, text=True
+        #                 )
+        #                 for line in show_result.stdout.split('\n'):
+        #                     if line.startswith('Location:'):
+        #                         site_packages_path = line.split(':', 1)[1].strip()
+        #                         if site_packages_path not in sys.path:
+        #                             sys.path.insert(0, site_packages_path)
+        #                             print(f"[DEBUG] install_debugpy: added debugpy location to sys.path: {site_packages_path}")
+        #                         break
+        #             except:
+        #                 print("[DEBUG] install_debugpy: failed to find site-packages via pip show")
 
         return result.stdout
     except subprocess.CalledProcessError as e:
@@ -71,6 +79,8 @@ def install_debugpy(python_path: str, pip_index_url: str = ""):
 
 
 def start_debugpy_server(port: int, python_path: str, adapter=None) -> bool:
+    global _debugpy_listening
+
     if python_path is None:
         print("[ERROR] start_debugpy_server: python_path is None, cannot start debugpy server")
         return False
@@ -101,12 +111,20 @@ def start_debugpy_server(port: int, python_path: str, adapter=None) -> bool:
         print(f"[ERROR] debugpy.configure() failed: {e}")
         raise
 
+    # debugpy.listen() 在进程中只能调用一次，重复调用会导致端口占用
+    # VS Code 断开重连时复用已有监听，无需重新 listen
+    if _debugpy_listening:
+        print(f"[DEBUG] debugpy already listening, reusing existing listener")
+        return True
+
     try:
         debugpy.listen(port)
+        _debugpy_listening = True
         print(f"[DEBUG] debugpy.listen({port}) succeeded, debug server is now listening")
     except RuntimeError as e:
         if "debugpy.listen() has already been called on this process" in str(e):
             print(f"[DEBUG] debugpy.listen() already called on this process, skipping")
+            _debugpy_listening = True
             return True
         print(f"[ERROR] debugpy.listen() RuntimeError: {e}")
         raise e

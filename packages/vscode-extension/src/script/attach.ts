@@ -23,37 +23,11 @@ export async function attach() {
         return;
     }
 
-    // 先确保 DCC 服务端已连接，未连接则提示用户先启动服务端
+    // 确保 DCC 服务端已连接，未连接则提示用户先启动服务端
     if (!driver.isConnected()) {
         const connected = await dccManager.connect();
         if (!connected) {
             await promptStartServer();
-            return;
-        }
-    }
-
-    let isDebugpyInstalled: boolean = true;
-    const importResult = await driver.importDebugpy();
-    if (importResult === undefined) {
-        return;
-    }
-    isDebugpyInstalled = importResult;
-
-    if (!isDebugpyInstalled) {
-        const selection = await vscode.window.showErrorMessage(
-            "Python package debugpy is required to attach the debugger.",
-            "Install debugpy"
-        );
-
-        if (selection !== "Install debugpy") {
-            return;
-        }
-
-        const config = utils.getExtensionConfig();
-        const pipIndexUrl = config.get<string>('debug.pipIndexUrl', '');
-        
-        const installationSuccess = await driver.installDebugpy(pipIndexUrl);
-        if (!installationSuccess) {
             return;
         }
     }
@@ -68,20 +42,24 @@ export async function attach() {
 
     const { port, ...debugConfig } = userDebugConfig;
 
-    if (await driver.startDebugServer(port)) {
-        const host = driver.getHost();
-
-        const configuration: vscode.DebugConfiguration = {
-            "name": utils.DEBUG_SESSION_NAME,
-            "request": "attach",
-            "type": "debugpy",
-            "connect": {
-                "host": host,
-                "port": port
-            },
-            ...debugConfig
-        };
-
-        await vscode.debug.startDebugging(undefined, configuration);
+    const started = await driver.startDebugServer(port);
+    if (!started) {
+        // debugpy 未安装时会提示用户运行 dcc setup
+        return;
     }
+
+    const host = driver.getHost();
+
+    const configuration: vscode.DebugConfiguration = {
+        "name": utils.DEBUG_SESSION_NAME,
+        "request": "attach",
+        "type": "debugpy",
+        "connect": {
+            "host": host,
+            "port": port
+        },
+        ...debugConfig
+    };
+
+    await vscode.debug.startDebugging(undefined, configuration);
 }

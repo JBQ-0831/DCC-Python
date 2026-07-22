@@ -19,10 +19,13 @@ uv tool install -e packages/dcc-bridge
 ## 快速开始
 
 ```bash
-# 1. 注入自启动脚本（以 3ds Max 为例）
+# 1. 注入自启动脚本并安装 debugpy（以 3ds Max 为例）
 dcc setup 3dsmax
 
-# 2. 打开 DCC，服务自动启动
+# 若网络较慢，可使用国内镜像源加速
+dcc setup 3dsmax --pip-index-url https://pypi.tuna.tsinghua.edu.cn/simple
+
+# 2. 打开 DCC，服务自动启动（debugpy 已就绪）
 
 # 3. 验证连接
 dcc status
@@ -43,10 +46,11 @@ dcc [--version] {run, setup, unsetup, status, ping} ...
 | 子命令 | 功能 |
 |---|---|
 | `run` | 在 DCC 中执行 Python 代码或文件 |
-| `setup` | 注入 DCC 自启动脚本（配置一次，永久生效） |
+| `setup` | 注入 DCC 自启动脚本并安装 debugpy（配置一次，永久生效） |
 | `unsetup` | 移除 DCC 自启动脚本 |
 | `status` | 查看桥接状态（实例列表 + 可选 ping） |
 | `ping` | 测试 DCC 桥接服务是否可达 |
+| `cleanup` | 清理所有 dcc-bridge 数据和自启动脚本（卸载前使用） |
 
 ---
 
@@ -148,26 +152,38 @@ hello from DCC
 
 ### `dcc setup` — 注入自启动脚本
 
-在 DCC 的启动目录中写入 `dcc_bridge_startup.py`，DCC 打开后自动启动桥接服务。
+在 DCC 的启动目录中写入 `dcc_bridge_startup.py`，DCC 打开后自动启动桥接服务。同时自动为每个 DCC 版本安装 debugpy 调试模块，安装失败仅输出警告，不影响脚本注入。
+
+不指定 `dcc_type` 时，自动为 Maya、3ds Max、Substance Painter、Substance Designer 全部执行注入。
 
 #### 语法
 
 ```
-dcc setup <dcc_type> [--version <版本号>]
+dcc setup [<dcc_type>] [--version <版本号>] [--pip-index-url <镜像源>]
 ```
 
 #### 参数
 
 | 参数 | 必填 | 说明 |
 |---|---|---|
-| `dcc_type` | 是 | DCC 类型：`maya`、`3dsmax`、`substance_painter`、`substance_designer` |
+| `dcc_type` | 否 | DCC 类型：`maya`、`3dsmax`、`substance_painter`、`substance_designer`。不指定时注入所有已支持的 DCC |
 | `--version` | 否 | 指定版本号。不指定时自动从注册表发现并注入所有已安装版本 |
+| `--pip-index-url` | 否 | pip 镜像源 URL，用于加速 debugpy 安装（如 `https://pypi.tuna.tsinghua.edu.cn/simple`） |
 
 #### 示例
 
 ```bash
-# 注入 3ds Max（自动发现所有已安装版本）
+# 注入所有已支持的 DCC（Maya + 3ds Max + SP + SD），自动发现版本并安装 debugpy
+dcc setup
+
+# 使用国内镜像源加速所有 DCC 的 debugpy 安装
+dcc setup --pip-index-url https://pypi.tuna.tsinghua.edu.cn/simple
+
+# 注入 3ds Max（自动发现所有已安装版本，并安装 debugpy）
 dcc setup 3dsmax
+
+# 使用国内镜像源加速
+dcc setup 3dsmax --pip-index-url https://pypi.tuna.tsinghua.edu.cn/simple
 
 # 注入指定版本的 Maya
 dcc setup maya --version 2024
@@ -341,6 +357,37 @@ dcc ping --plain
 DCC bridge server is reachable.
 DCC type: 3dsmax
 Python path: C:\Program Files\Autodesk\3ds Max 2024\python\python.exe
+```
+
+---
+
+### `dcc cleanup` — 清理数据与脚本
+
+卸载 dcc-bridge 前使用，执行两项清理操作：
+
+1. 删除 `~/.dcc-bridge` 用户数据目录（包含所有发现文件）
+2. 对所有已安装的 DCC 执行 unsetup，移除自启动脚本
+
+#### 语法
+
+```
+dcc cleanup [--yes]
+```
+
+#### 参数
+
+| 参数 | 必填 | 说明 |
+|---|---|---|
+| `--yes`, `-y` | 否 | 跳过确认提示，直接执行清理 |
+
+#### 示例
+
+```bash
+# 交互式清理（会显示确认提示）
+dcc cleanup
+
+# 跳过确认，直接清理
+dcc cleanup --yes
 ```
 
 ---

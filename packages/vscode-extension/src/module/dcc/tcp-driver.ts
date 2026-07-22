@@ -230,6 +230,22 @@ export class TCPDriver implements IDCCDriver {
                         'dcc-python-toolkit.debug.port'
                     );
                 }
+                return false;
+            }
+
+            // debugpy 未安装时提示用户运行 dcc setup
+            const notInstalled = /No module named.*debugpy|debugpy.*not found|Failed to import debugpy/i.test(result.error);
+            if (notInstalled) {
+                const action = await vscode.window.showErrorMessage(
+                    'DCC 中未安装 debugpy 调试模块。请在终端运行 dcc setup <dcc> 完成安装。',
+                    '复制 setup 命令'
+                );
+                if (action === '复制 setup 命令') {
+                    const dccType = this.dccType === '3dsmax' ? '3dsmax' : this.dccType;
+                    await vscode.env.clipboard.writeText(`dcc setup ${dccType}`);
+                    vscode.window.showInformationMessage('已复制 setup 命令到剪贴板');
+                }
+                return false;
             }
         }
         

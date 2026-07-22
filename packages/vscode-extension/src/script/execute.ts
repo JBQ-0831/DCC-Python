@@ -87,14 +87,10 @@ export async function promptStartServer(): Promise<void> {
     const result = await vscode.window.showErrorMessage(
         '未连接到 DCC 服务端。请先打开 DCC，或配置 DCC 自启动桥接服务。',
         '打开 Dashboard',
-        '复制 setup 命令'
     );
 
     if (result === '打开 Dashboard') {
         await vscode.commands.executeCommand('dcc-python-toolkit.openDashboard');
-    } else if (result === '复制 setup 命令') {
-        await vscode.env.clipboard.writeText('dcc setup maya    # 或 dcc setup 3dsmax');
-        vscode.window.showInformationMessage('已复制 setup 命令到剪贴板');
     }
 
     Logger.error('No DCC server reachable. Use "dcc setup <dcc>" or the Dashboard to configure auto-start.');

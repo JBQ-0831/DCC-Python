@@ -103,6 +103,13 @@ class DesignerSetup(DCCSetup):
             home, "Documents", "Adobe", "Adobe Substance 3D Designer", "python", "sduserplugins",
         )
 
+    def get_python_path(self, version: Optional[str] = None) -> Optional[str]:
+        """返回 Substance Designer 的 Python 解释器路径"""
+        install_path = self.get_install_path(version)
+        if install_path:
+            return os.path.join(install_path, "plugins", "pythonsdk", "python.exe")
+        return None
+
     def get_supported_languages(self) -> List[str]:
         """SD 的脚本目录不随语言变化，只注入一份即可"""
         return ["en"]

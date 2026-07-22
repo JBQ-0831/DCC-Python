@@ -20,7 +20,9 @@ pip install dcc-bridge
 
 ### 附加调试器
 
-`DCC Python ToolKit: Attach Debugger` 在 DCC 中启动 debugpy 服务，并将 VS Code 附加到该服务。
+`DCC Python ToolKit: Attach Debugger` 在 DCC 中启动 debugpy 调试服务，并将 VS Code 附加到该服务。首次使用前需运行 `dcc setup <dcc>` 完成 debugpy 安装。
+
+**注意**：debugpy 在首次 attach 时绑定端口，DCC 运行期间端口不可更改。若修改了 `debug.port` 配置，需重启 DCC 才能生效。
 
 ### 重载模块
 
@@ -28,11 +30,12 @@ pip install dcc-bridge
 
 ### Dashboard
 
-`DCC Python ToolKit: Open Dashboard` 打开资源管理器面板，列出所有运行中的 DCC 实例：
+侧边栏 `DCC Python ToolKit` 面板列出所有运行中的 DCC 实例，并提供一键操作：
 
 - **Select Instance**：选择当前要连接的 DCC 实例，后续 `Execute`、`Reload Modules`、`Attach Debugger` 等命令均针对该实例。
-- **4 个 Setup 按钮**：一键注入 Maya / 3ds Max / Substance Painter / Substance Designer 的自启动脚本。
-- 选中实例后可通过右键菜单移除对应 DCC 的自动启动。
+- **4 个 Setup 按钮**：一键注入 Maya / 3ds Max / Substance Painter / Substance Designer 的自启动脚本，并自动安装 debugpy。
+- **4 个 Unsetup 按钮**：移除对应 DCC 的自启动脚本。
+- 执行 setup 时输出日志会实时写入 `DCC Python ToolKit Log` 输出频道。
 
 ## 配置
 
@@ -42,8 +45,7 @@ pip install dcc-bridge
 | `dcc-python-toolkit.server.host` | DCC 服务地址 | `127.0.0.1` |
 | `dcc-python-toolkit.server.port` | DCC 服务端口 | `7002` |
 | `dcc-python-toolkit.execute.entryPoint` | 入口点脚本路径 | `""` |
-| `dcc-python-toolkit.debug.port` | debugpy 端口 | `7012` |
-| `dcc-python-toolkit.debug.pipIndexUrl` | 可选 pip 源 | `""` |
+| `dcc-python-toolkit.debug.port` | debugpy 端口，首次 attach 后绑定，修改需重启 DCC | `7012` |
 
 ## 开发
 

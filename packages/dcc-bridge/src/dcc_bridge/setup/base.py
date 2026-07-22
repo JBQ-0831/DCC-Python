@@ -174,6 +174,11 @@ class DCCSetup(ABC):
         """拼接指定版本、指定语言的自启动脚本写入目录"""
         raise NotImplementedError
 
+    @abstractmethod
+    def get_python_path(self, version: str) -> Optional[str]:
+        """获取指定版本的 Python 解释器路径（用于安装 debugpy）"""
+        raise NotImplementedError
+
     # ==================== 可覆盖的钩子 ====================
 
     def get_supported_languages(self) -> List[str]:
@@ -264,12 +269,13 @@ else:
             return None
         return os.path.join(script_dir, self.get_startup_script_name())
 
-    def setup(self, version: Optional[str] = None) -> bool:
+    def setup(self, version: Optional[str] = None, pip_index_url: str = "") -> bool:
         """
-        注入自启动脚本
+        注入自启动脚本，并为每个版本安装 debugpy
 
         指定 version 时只注入该版本；不指定时遍历所有 >= min_supported_version 的已安装版本。
         全部成功返回 True，任一失败返回 False。
+        debugpy 安装失败仅输出警告，不阻断 setup 流程。
         """
         versions = self._get_target_versions(version)
         if not versions:
@@ -280,6 +286,19 @@ else:
         for ver in versions:
             if not self._setup_single(ver):
                 all_success = False
+            # 安装 debugpy 到该版本 DCC 的 Python 环境
+            python_path = self.get_python_path(ver)
+            if python_path and os.path.exists(python_path):
+                try:
+                    from ..debug import install_debugpy
+                    print(f"Installing debugpy for {self.dcc_type} {ver} (python={python_path})...")
+                    install_debugpy(python_path, pip_index_url)
+                    print(f"debugpy installed successfully for {self.dcc_type} {ver}")
+                except Exception as e:
+                    print(f"Warning: debugpy installation failed for {self.dcc_type} {ver}: {e}")
+                    print(f"  debugpy 安装失败不影响代码执行，但调试功能将不可用。")
+            else:
+                print(f"Warning: Python interpreter not found for {self.dcc_type} {ver}, skipping debugpy install")
         return all_success
 
     def _setup_single(self, version: str) -> bool:
