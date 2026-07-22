@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dcc-bridge"
-version = "1.1.0b1"
+version = "1.1.0"
 description = "DCC Python bridge: 独立的 CLI 工具，支持在 Maya、3ds Max、Substance Painter 等 DCC 中远程执行 Python 代码。VS Code 扩展为可选组件，用于人工调试场景。AI 可直接通过 CLI 发送代码，无需安装 VS Code 扩展。"
 readme = "README.md"
 license = { text = "PolyForm-Noncommercial-1.0.0" }
