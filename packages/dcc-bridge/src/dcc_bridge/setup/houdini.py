@@ -11,7 +11,7 @@ Houdini 自启动注入器
   3. 由安装目录拼接出内置 Python 解释器路径（python3X/python.exe）。
   4. 运行 Python 解释器查询其版本（如 "3.13"），用于拼接脚本目录。
   5. 启动脚本目录：~/Documents/houdini<version>/python<pythonversion>libs
-  6. 启动脚本文件名固定为 uiread.py（已重写 get_startup_script_name）。
+  6. 启动脚本文件名固定为 uiready.py（已重写 get_startup_script_name）。
 """
 
 from __future__ import annotations
@@ -42,7 +42,7 @@ class HoudiniSetup(DCCSetup):
       InstallPath = "C:\\Program Files\\Side Effects Software\\Houdini 19.5.773"
       Version     = "19.5.773"
     脚本目录：  ~/Documents/houdini<X.Y>/python<pyver>libs
-    启动脚本：  uiread.py
+    启动脚本：  uiready.py
     """
 
     dcc_name = "houdini"
@@ -170,8 +170,8 @@ class HoudiniSetup(DCCSetup):
         return ["en"]
 
     def get_startup_script_name(self) -> str:
-        """Houdini 的启动脚本固定命名为 uiread.py"""
-        return "uiread.py"
+        """Houdini 的启动脚本固定命名为 uiready.py"""
+        return "uiready.py"
 
 
 if __name__ == "__main__":

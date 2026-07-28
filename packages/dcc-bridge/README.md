@@ -40,7 +40,7 @@ dcc run code "print('hello from DCC')"
 ### 命令总览
 
 ```
-dcc [--version] {run, setup, unsetup, status, ping} ...
+dcc [--version] {run, setup, unsetup, status, ping, cleanup} ...
 ```
 
 | 子命令 | 功能 |
@@ -77,7 +77,7 @@ dcc run {file, code, stdin} [target] [选项]
 | 选项 | 类型 | 默认值 | 说明 |
 |---|---|---|---|
 | `--port` | int | 自动发现 | 指定目标 DCC 服务端口 |
-| `--dcc-name` | str | 自动发现 | 指定目标 DCC 类型（`maya`、`3dsmax`、`substance_painter`、`substance_designer` 等） |
+| `--dcc-name` | str | 自动发现 | 指定目标 DCC 类型（`maya`、`3dsmax`、`substance_painter`、`substance_designer`、`houdini`、`blender`） |
 | `-r`, `--reload` | flag | 否 | 执行前先重载模块（`file` 重载文件所在目录，`code`/`stdin` 重载当前工作目录） |
 | `--origin` | str | 自动生成 | 自定义 `exec_origin`，用于标识代码来源 |
 | `--plain` | flag | 否 | 输出纯文本而非 JSON |
@@ -154,7 +154,7 @@ hello from DCC
 
 在 DCC 的启动目录中写入 `dcc_bridge_startup.py`，DCC 打开后自动启动桥接服务。同时自动为每个 DCC 版本安装 debugpy 调试模块，安装失败仅输出警告，不影响脚本注入。
 
-不指定 `dcc_name` 时，自动为 Maya、3ds Max、Substance Painter、Substance Designer 全部执行注入。
+不指定 `dcc_name` 时，自动为 Maya、3ds Max、Substance Painter、Substance Designer、Houdini、Blender 全部执行注入。
 
 #### 语法
 
@@ -166,7 +166,7 @@ dcc setup [<dcc_name>] [--version <版本号>] [--pip-index-url <镜像源>]
 
 | 参数 | 必填 | 说明 |
 |---|---|---|
-| `dcc_name` | 否 | DCC 类型：`maya`、`3dsmax`、`substance_painter`、`substance_designer`。不指定时注入所有已支持的 DCC |
+| `dcc_name` | 否 | DCC 类型：`maya`、`3dsmax`、`substance_painter`、`substance_designer`、`houdini`、`blender`。不指定时注入所有已支持的 DCC |
 | `--version` | 否 | 指定版本号。不指定时自动从注册表发现并注入所有已安装版本 |
 | `--pip-index-url` | 否 | pip 镜像源 URL，用于加速 debugpy 安装（如 `https://pypi.tuna.tsinghua.edu.cn/simple`） |
 
@@ -194,6 +194,10 @@ dcc setup maya
 # 注入 Substance Painter / Substance Designer
 dcc setup substance_painter
 dcc setup substance_designer
+
+# 注入 Houdini / Blender
+dcc setup houdini
+dcc setup blender
 ```
 
 #### 注入位置
@@ -204,6 +208,8 @@ dcc setup substance_designer
 | 3ds Max | `~/AppData/Local/Autodesk/3dsMax/<year> - 64bit/ENU/scripts/startup/dcc_bridge_startup.py` | 无（Max 自动加载 startup 目录） |
 | Substance Painter | 应用脚本目录 | 自动启动入口注入 |
 | Substance Designer | 应用脚本目录 | 自动启动入口注入 |
+| Houdini | `~/Documents/houdini<version>/python<pythonversion>libs/uiready.py` | 无需额外配置（Houdini 自动加载该目录） |
+| Blender | 应用脚本目录 | 自动启动入口注入 |
 
 #### 版本发现机制
 
@@ -215,6 +221,8 @@ dcc setup substance_designer
 | 3ds Max | `HKLM\SOFTWARE\Autodesk\3dsMax\<internal_version>` | `Installdir` 值中的年份（如 `2019`、`2024`） |
 | Substance Painter | 注册表/安装路径 | 自动发现 |
 | Substance Designer | 注册表/安装路径 | 自动发现 |
+| Houdini | `HKLM\SOFTWARE\Side Effects Software\Houdini <X.Y.Z>` | 子键名中的版本号（如 `19.5`、`22.0`） |
+| Blender | 安装路径扫描 | 自动发现 |
 
 ---
 
@@ -453,6 +461,8 @@ with resolve_client(dcc_name="maya") as client:
 | 3ds Max | 完整支持 | 注册表 | `scripts/startup/dcc_bridge_startup.py` |
 | Substance Painter | 支持 | 注册表/安装路径 | 自动启动入口注入 |
 | Substance Designer | 支持 | 注册表/安装路径 | 自动启动入口注入 |
+| Houdini | 支持 | 注册表 | `uiready.py` |
+| Blender | 支持 | 安装路径 | 自动启动入口注入 |
 
 ---
 

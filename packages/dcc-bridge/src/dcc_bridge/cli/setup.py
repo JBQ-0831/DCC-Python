@@ -57,7 +57,7 @@ def setup(ctx, dcc_name, dcc_version, pip_index_url) -> None:
     """
     if dcc_name is None:
         # 不指定 DCC 类型时，遍历所有已支持的 DCC
-        all_types = ["maya", "3dsmax", "substance_painter", "substance_designer", "houdini"]
+        all_types = ["maya", "3dsmax", "substance_painter", "substance_designer", "houdini", "blender"]
         for dt in all_types:
             click.echo(f"\n--- Setting up {dt} ---")
             try:

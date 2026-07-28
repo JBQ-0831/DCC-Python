@@ -219,8 +219,8 @@ class TestGetScriptDir:
 
 class TestGetStartupScriptName:
     def test_returns_uiread(self, setup_instance):
-        """Houdini 启动脚本固定为 uiread.py"""
-        assert setup_instance.get_startup_script_name() == "uiread.py"
+        """Houdini 启动脚本固定为 uiready.py"""
+        assert setup_instance.get_startup_script_name() == "uiready.py"
 
 
 # ==================== get_startup_script_content ====================
@@ -280,10 +280,10 @@ class TestDetectInstallations:
 
 class TestGetStartupScriptPath:
     def test_returns_full_path(self, setup_instance, populated_registry, mock_home, mock_python_env):
-        """应返回 pythonX.Ylibs 目录下的 uiread.py"""
+        """应返回 pythonX.Ylibs 目录下的 uiready.py"""
         path = setup_instance.get_startup_script_path("19.5")
         assert path is not None
-        assert path.endswith(os.path.join(f"python3.13{HOUDINI_PYTHON_LIBS_SUFFIX}", "uiread.py"))
+        assert path.endswith(os.path.join(f"python3.13{HOUDINI_PYTHON_LIBS_SUFFIX}", "uiready.py"))
 
     def test_returns_none_for_nonexistent(self, setup_instance, populated_registry, mock_home, mock_python_env):
         """版本不存在时返回 None"""
@@ -294,11 +294,11 @@ class TestGetStartupScriptPath:
 
 class TestSetup:
     def test_writes_startup_script(self, setup_instance, populated_registry, mock_home, mock_python_env):
-        """setup 后应存在 uiread.py"""
+        """setup 后应存在 uiready.py"""
         assert setup_instance.setup("19.5") is True
         script_path = (
             mock_home / "Documents" / "houdini19.5"
-            / f"python3.13{HOUDINI_PYTHON_LIBS_SUFFIX}" / "uiread.py"
+            / f"python3.13{HOUDINI_PYTHON_LIBS_SUFFIX}" / "uiready.py"
         )
         assert script_path.exists()
 
@@ -307,7 +307,7 @@ class TestSetup:
         setup_instance.setup("19.5")
         script_path = (
             mock_home / "Documents" / "houdini19.5"
-            / f"python3.13{HOUDINI_PYTHON_LIBS_SUFFIX}" / "uiread.py"
+            / f"python3.13{HOUDINI_PYTHON_LIBS_SUFFIX}" / "uiready.py"
         )
         content = script_path.read_text(encoding="utf-8")
         assert "houdini" in content
@@ -328,7 +328,7 @@ class TestSetup:
         for ver, py in (("19.5", "3.13"), ("22.0", "3.13")):
             script_path = (
                 mock_home / "Documents" / f"houdini{ver}"
-                / f"python{py}{HOUDINI_PYTHON_LIBS_SUFFIX}" / "uiread.py"
+                / f"python{py}{HOUDINI_PYTHON_LIBS_SUFFIX}" / "uiready.py"
             )
             assert script_path.exists(), f"startup script not found for {ver}"
 
@@ -337,11 +337,11 @@ class TestSetup:
 
 class TestUnsetup:
     def test_removes_startup_script(self, setup_instance, populated_registry, mock_home, mock_python_env):
-        """unsetup 后应删除 uiread.py"""
+        """unsetup 后应删除 uiready.py"""
         setup_instance.setup("19.5")
         script_path = (
             mock_home / "Documents" / "houdini19.5"
-            / f"python3.13{HOUDINI_PYTHON_LIBS_SUFFIX}" / "uiread.py"
+            / f"python3.13{HOUDINI_PYTHON_LIBS_SUFFIX}" / "uiready.py"
         )
         assert script_path.exists()
 
@@ -362,7 +362,7 @@ class TestUnsetup:
         setup_instance.unsetup("19.5")
         script_path = (
             mock_home / "Documents" / "houdini19.5"
-            / f"python3.13{HOUDINI_PYTHON_LIBS_SUFFIX}" / "uiread.py"
+            / f"python3.13{HOUDINI_PYTHON_LIBS_SUFFIX}" / "uiready.py"
         )
         assert not script_path.exists()
 

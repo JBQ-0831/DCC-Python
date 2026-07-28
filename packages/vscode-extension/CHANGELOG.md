@@ -1,5 +1,34 @@
 # Change Log
 
+## [1.2.0] - 2026-07-21
+
+### 新增
+- 支持 Houdini 和 Blender 的 `dcc setup` / `dcc unsetup` 注入
+- DCC Setup Manager WebView 面板：可视化 DCC 工具管理，支持独立 Setup/Unsetup 和批量操作
+- 状态指示灯：绿色 ● 运行中 / 灰色 ○ 未检测到
+- Dashboard 标题栏和命令面板入口 (`Ctrl+Shift+P` → `DCC Setup Manager`)
+
+### 变更
+- `dcc setup` 不指定 DCC 类型时自动为所有已支持的 DCC 执行注入
+- `dcc setup --pip-index-url` 支持使用国内镜像源加速 debugpy 安装
+- 清理命令 `dcc cleanup` 的完整文档
+- Dashboard 移除 Open Dashboard 按钮和刷新节点
+- Dashboard 的 setup 命令输出实时写入 `DCC Python ToolKit Log` 频道
+- `runSetupCommand` 移除超时限制，避免网络慢时误报超时
+
+## [1.1.0] - 2026-07-21
+
+### 新增
+- `dcc setup` 命令自动为每个 DCC 版本安装 debugpy，无需在 attach 时按需安装
+- `debugpy.listen()` 复用机制：断开重连时复用已有监听，不再报端口占用
+- 各 DCCSetup 子类实现 `get_python_path()` 方法，用于定位 Python 解释器
+
+### 变更
+- 移除 VS Code 扩展中的 `pipIndexUrl` 配置项，镜像源改为 `dcc setup --pip-index-url` 传入
+- `attach.ts` 简化流程，移除 debugpy 安装检查，直接启动调试
+- 未安装 debugpy 时提示用户运行 `dcc setup <dcc>`
+- `debug.port` 配置项新增说明：端口绑定后不可动态更改，需重启 DCC
+
 ## [1.0.4] - 2026-07-21
 
 ### 变更

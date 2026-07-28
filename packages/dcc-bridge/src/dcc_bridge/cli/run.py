@@ -26,7 +26,7 @@ def _run_common_options(func):
     func = click.option("--plain", is_flag=True, default=False, help="Output in plain text.\n纯文本输出。")(func)
     func = click.option("--origin", type=str, default=None, help="Execution origin identifier.\n执行来源标识。")(func)
     func = click.option("-r", "--reload", "reload", is_flag=True, default=False, help="Reload modules before execution.\n执行前重载模块。")(func)
-    func = click.option("--dcc-name", type=str, default=None, help="DCC type (maya/3dsmax/substance_painter/substance_designer/houdini).\nDCC 类型 (maya/3dsmax/substance_painter/substance_designer/houdini)。")(func)
+    func = click.option("--dcc-name", type=str, default=None, help="DCC type (maya/3dsmax/substance_painter/substance_designer/houdini/blender).\nDCC 类型 (maya/3dsmax/substance_painter/substance_designer/houdini/blender)。")(func)
     func = click.option("--version", "dcc_version", type=str, default=None, help="Filter by DCC version (e.g. 2022/2024).\nDCC 版本过滤（如 2022/2024）。")(func)
     func = click.option("--port", type=int, default=None, help="Target DCC port.\n目标 DCC 端口。")(func)
     return func

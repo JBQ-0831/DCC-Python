@@ -16,7 +16,7 @@ def _target_options(func):
     """为 status/ping 添加目标解析选项（端口/类型/版本/输出格式）"""
     func = click.option("--version", "dcc_version", type=str, default=None, help="Filter by DCC version.\nDCC 版本过滤。")(func)
     func = click.option("--plain", is_flag=True, default=False, help="Output in plain text.\n纯文本输出。")(func)
-    func = click.option("--dcc-name", type=str, default=None, help="Filter by DCC type.\nDCC 类型过滤。")(func)
+    func = click.option("--dcc-name", type=str, default=None, help="Filter by DCC type (maya/3dsmax/substance_painter/substance_designer/houdini/blender).\nDCC 类型过滤 (maya/3dsmax/substance_painter/substance_designer/houdini/blender)。")(func)
     func = click.option("--port", type=int, default=None, help="Target DCC port.\n目标 DCC 端口。")(func)
     return func
 
