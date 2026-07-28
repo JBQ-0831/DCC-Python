@@ -308,7 +308,7 @@ else:
                     print(
                         f"Warning: debugpy installation failed for {self.dcc_name} {ver}: {e}"
                     )
-                    print("  debugpy 安装失败不影响代码执行，但调试功能将不可用。")
+                    print("  debugpy installation failure does not block startup script injection.")
             else:
                 print(
                     f"Warning: Python interpreter not found for {self.dcc_name} {ver}, skipping debugpy install"
@@ -373,10 +373,8 @@ else:
                     uninstall_debugpy(python_path)
                     print(f"debugpy uninstalled successfully for {self.dcc_name} {ver}")
                 except Exception as e:
-                    print(
-                        f"Warning: debugpy uninstallation failed for {self.dcc_name} {ver}: {e}"
-                    )
-                    print("  debugpy 卸载失败不影响自启动脚本移除。")
+                    print(f"Warning: debugpy uninstallation failed: {e}")
+                    print("  debugpy uninstallation failure does not block startup unsetup.")
             else:
                 print(
                     f"Warning: Python interpreter not found for {self.dcc_name} {ver}, skipping debugpy uninstall"

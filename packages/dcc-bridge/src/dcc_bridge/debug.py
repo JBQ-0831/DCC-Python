@@ -67,7 +67,7 @@ def _shell_execute_ex_runas(exe: str, params: str, cwd: str | None = None) -> in
 
     if not ctypes.windll.shell32.ShellExecuteExW(ctypes.byref(sei)):
         err = ctypes.GetLastError()
-        if err == 1223:  # ERROR_CANCELLED：用户在 UAC 弹窗中点了“否”
+        if err == 1223:  # ERROR_CANCELLED：用户在 UAC 弹窗中点了"否"
             raise RuntimeError("用户取消了 UAC 提权（错误码 1223）")
         raise ctypes.WinError(err)
 
@@ -93,9 +93,11 @@ def _run_pip_elevated(cmd) -> tuple[int, str]:
     python_path = cmd[0]
     # 其余参数原样拼接；含空格的参数加引号
     pip_args = " ".join(f'"{a}"' if " " in a else a for a in cmd[1:])
+    # utf8NoBOM 避免输出文件带 BOM（\ufeff），防止后续 GBK 控制台打印时报编码错误。
+    # 同时，若 PowerShell 版本不支持 utf8NoBOM（极少见），外层 lstrip 会兜底。
     ps1 = (
         f'$py = "{python_path}"\n'
-        f'& $py {pip_args} 2>&1 | Out-File -Encoding utf8 "{out_file}"\n'
+        f'& $py {pip_args} 2>&1 | Out-File -Encoding utf8NoBOM "{out_file}"\n'
         f"exit $LASTEXITCODE\n"
     )
     with open(ps1_file, "w", encoding="utf-8") as f:
@@ -107,7 +109,7 @@ def _run_pip_elevated(cmd) -> tuple[int, str]:
         )
         output = ""
         try:
-            with open(out_file, "r", encoding="utf-8", errors="replace") as f:
+            with open(out_file, "r", encoding="utf-8-sig", errors="replace") as f:
                 output = f.read()
         except FileNotFoundError:
             output = ""
@@ -118,6 +120,21 @@ def _run_pip_elevated(cmd) -> tuple[int, str]:
                 os.remove(p)
             except OSError:
                 pass
+
+
+def _safe_console_write(text: str) -> None:
+    """安全地将文本写入 stdout，自动处理控制台编码不兼容的字符。
+
+    Windows 中文系统控制台编码为 GBK，若输出中包含 GBK 无法编码的字符
+    （如 BOM \\ufeff，即便已从源头去除仍有极小概率出现），
+    直接 sys.stdout.write 会导致 UnicodeEncodeError。
+    这里用 errors='replace' 兜底，并回退到 sys.stdout.encoding 真实编码。
+    """
+    encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
+    try:
+        sys.stdout.write(text)
+    except UnicodeEncodeError:
+        sys.stdout.write(text.encode(encoding, errors="replace").decode(encoding))
 
 
 def install_debugpy(python_path: str, pip_index_url: str = ""):
@@ -136,24 +153,21 @@ def install_debugpy(python_path: str, pip_index_url: str = ""):
     # Windows 且非管理员时，普通进程无法写入 DCC 受 UAC 保护的 site-packages，
     # 必须先提权再安装，否则 pip 会回退到用户全局目录导致 DCC 内 import 失败。
     if sys.platform == "win32" and not _is_user_admin():
-        print(
-            "[DEBUG] install_debugpy: 非管理员进程，通过 UAC 提权安装到 DCC 内置 site-packages"
-        )
+        print("[DEBUG] install_debugpy: non-admin process, elevating via UAC to install into DCC site-packages")
         try:
             exit_code, output = _run_pip_elevated(cmd)
         except RuntimeError as e:
-            raise RuntimeError(
-                f"[ERROR] install_debugpy: 管理员提权失败（可能用户取消了 UAC）：{e}"
-            )
-        sys.stdout.write(output)
+            raise RuntimeError(f"[ERROR] install_debugpy: UAC elevation failed (user may have cancelled): {e}")
+        _safe_console_write(output)
         if exit_code != 0:
             raise subprocess.CalledProcessError(exit_code, cmd, output, "")
         return output
 
     try:
-        result = subprocess.run(cmd, capture_output=True, check=True, text=True)
-        print(f"[DEBUG] install_debugpy: returncode={result.returncode}")
-        sys.stdout.write(result.stdout)
+        result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace')
+        # 强制 UTF-8 解码 + errors='replace' 兜底
+        print(f"[DEBUG] install_debugpy: returncode={result.returncode}".encode('utf-8', errors='replace').decode('utf-8'))
+        _safe_console_write(result.stdout)
         if result.stderr:
             sys.stderr.write(result.stderr)
 
@@ -211,26 +225,23 @@ def uninstall_debugpy(python_path: str, pip_index_url: str = ""):
     # 与 install_debugpy 同理：Windows 非管理员进程无法删除受 UAC 保护的
     # DCC site-packages 中的 debugpy，需先提权再卸载。
     if sys.platform == "win32" and not _is_user_admin():
-        print(
-            "[DEBUG] uninstall_debugpy: 非管理员进程，通过 UAC 提权卸载 DCC 内置 site-packages 中的 debugpy"
-        )
+        print("[DEBUG] uninstall_debugpy: non-admin process, elevating via UAC to uninstall from DCC site-packages")
         try:
             exit_code, output = _run_pip_elevated(cmd)
         except RuntimeError as e:
-            raise RuntimeError(
-                f"[ERROR] uninstall_debugpy: 管理员提权失败（可能用户取消了 UAC）：{e}"
-            )
-        sys.stdout.write(output)
-        # pip uninstall 对“未安装”的包返回 0 并提示 Skipping，仍视为成功；
-        # 仅当确实卸载失败（且非“未安装”）时才抛出。
+            raise RuntimeError(f"[ERROR] uninstall_debugpy: UAC elevation failed (user may have cancelled): {e}")
+        _safe_console_write(output)
+        # pip uninstall 对"未安装"的包返回 0 并提示 Skipping，仍视为成功；
+        # 仅当确实卸载失败（且非"未安装"）时才抛出。
         if exit_code != 0 and "not installed" not in output and "Skipping" not in output:
             raise subprocess.CalledProcessError(exit_code, cmd, output, "")
         return output
 
     try:
-        result = subprocess.run(cmd, capture_output=True, check=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace')
+        # 强制 UTF-8 解码 + errors='replace' 兜底
         print(f"[DEBUG] uninstall_debugpy: returncode={result.returncode}")
-        sys.stdout.write(result.stdout)
+        _safe_console_write(result.stdout)
         if result.stderr:
             sys.stderr.write(result.stderr)
         return result.stdout
@@ -238,7 +249,7 @@ def uninstall_debugpy(python_path: str, pip_index_url: str = ""):
         # pip uninstall 对已不存在的包仍返回 0，这里仅在确实失败时提示
         combined = f"{e.stdout}\n{e.stderr}"
         if "not installed" in combined or "Skipping" in combined:
-            print("[DEBUG] uninstall_debugpy: debugpy 未安装，跳过")
+            print("[DEBUG] uninstall_debugpy: debugpy 未安装，跳过".encode('utf-8', errors='replace').decode('utf-8'))
             return combined
         print(f"[ERROR] uninstall_debugpy failed: {e}")
         print(f"[ERROR] stdout: {e.stdout}")
