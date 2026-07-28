@@ -15,6 +15,7 @@ _DCC_NAME_ALIASES: dict[str, list[str]] = {
     "substance_painter": ["sp", "painter", "substancepainter"],
     "substance_designer": ["sd", "designer", "substancedesigner"],
     "houdini": ["h", "hou", "sidefx", "houdini"],
+    "blender": ["bl", "b3d"],
 }
 
 # 别名（含规范名自身、大小写不敏感）-> 规范名称

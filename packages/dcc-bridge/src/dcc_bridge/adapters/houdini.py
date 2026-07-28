@@ -62,9 +62,6 @@ class HoudiniAdapter(DCCAdapter):
         try:
             import hou
 
-            # hou.qt.mainWindow() 直接返回主窗口的 QWidget 实例，
-            # 无需像 Maya 那样用 shiboken 从原生指针 wrapInstance。
-            # 参考: https://www.sidefx.com/docs/houdini/hom/hou/qt/mainWindow.html
             parent_window = hou.qt.mainWindow()
         except Exception:
             logger = self.get_logger()

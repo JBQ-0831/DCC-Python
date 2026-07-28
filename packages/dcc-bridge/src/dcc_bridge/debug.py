@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import ctypes
 import os
 import subprocess
 import sys
+import tempfile
+from ctypes import wintypes
 
 # 模块级标志：debugpy.listen() 在 DCC 进程生命周期内只能调用一次，
 # 重复调用会导致端口占用错误。VS Code 断开重连时复用已有监听。
@@ -12,6 +15,109 @@ _debugpy_listening = False
 def get_python_path() -> str:
     """返回当前 Python 解释器路径，各 DCC 的 Adapter 可覆盖此方法"""
     return sys.executable
+
+
+# ─── Windows UAC 提权安装（供 install_debugpy 在权限不足时调用）────────────
+# Blender/Maya 等 DCC 的内置 Python 通常位于 C:\Program Files，受 UAC 保护。
+# 非管理员进程调用其 pip 时无法写入 DCC 的 site-packages，pip 会回退到用户全局
+# 目录，导致 DCC 内部 import debugpy 失败。下面用 ShellExecuteEx(runas) 提权后
+# 再安装，确保包落到 DCC 自己的 site-packages。
+
+class _SHELLEXECUTEINFO(ctypes.Structure):
+    _fields_ = [
+        ("cbSize", wintypes.DWORD),
+        ("fMask", wintypes.ULONG),
+        ("hwnd", wintypes.HWND),
+        ("lpVerb", wintypes.LPCWSTR),
+        ("lpFile", wintypes.LPCWSTR),
+        ("lpParameters", wintypes.LPCWSTR),
+        ("lpDirectory", wintypes.LPCWSTR),
+        ("nShow", ctypes.c_int),
+        ("hInstApp", wintypes.HINSTANCE),
+        ("lpIDList", ctypes.c_void_p),
+        ("lpClass", wintypes.LPCWSTR),
+        ("hKeyClass", wintypes.HANDLE),
+        ("dwHotKey", wintypes.DWORD),
+        ("hIconOrMonitor", wintypes.HANDLE),
+        ("hProcess", wintypes.HANDLE),
+    ]
+
+
+def _is_user_admin() -> bool:
+    """Windows 下返回当前进程是否为管理员；非 Windows 一律返回 True（无需提权）。"""
+    if sys.platform != "win32" or ctypes is None:
+        return True
+    try:
+        return ctypes.windll.shell32.IsUserAnAdmin() != 0
+    except Exception:
+        return False
+
+
+def _shell_execute_ex_runas(exe: str, params: str, cwd: str | None = None) -> int:
+    """以管理员权限（UAC）同步启动 exe，返回退出码。用户取消 UAC 时抛出 RuntimeError。"""
+    sei = _SHELLEXECUTEINFO()
+    sei.cbSize = ctypes.sizeof(sei)
+    sei.fMask = 0x00000040  # SEE_MASK_NOCLOSEPROCESS：保留 hProcess 以便等待
+    sei.hwnd = None
+    sei.lpVerb = "runas"
+    sei.lpFile = exe
+    sei.lpParameters = params
+    sei.lpDirectory = cwd
+    sei.nShow = 1  # SW_SHOWNORMAL
+
+    if not ctypes.windll.shell32.ShellExecuteExW(ctypes.byref(sei)):
+        err = ctypes.GetLastError()
+        if err == 1223:  # ERROR_CANCELLED：用户在 UAC 弹窗中点了“否”
+            raise RuntimeError("用户取消了 UAC 提权（错误码 1223）")
+        raise ctypes.WinError(err)
+
+    h_process = sei.hProcess
+    ctypes.windll.kernel32.WaitForSingleObject(h_process, 0xFFFFFFFF)
+    exit_code = wintypes.DWORD()
+    ctypes.windll.kernel32.GetExitCodeProcess(h_process, ctypes.byref(exit_code))
+    ctypes.windll.kernel32.CloseHandle(h_process)
+    return exit_code.value
+
+
+def _run_pip_elevated(cmd) -> tuple[int, str]:
+    """Windows 下以管理员权限运行 pip 命令（install/uninstall），返回 (exit_code, 合并输出)。
+
+    cmd 形如 [python_path, "-m", "pip", "install"|"uninstall", ...]，其中 python_path
+    可能位于受保护的 C:\\Program Files。通过临时 ps1 脚本 + ShellExecuteEx(runas) 提权，
+    并把输出重定向到临时文件以便捕获。
+    """
+    pid = os.getpid()
+    out_file = os.path.join(tempfile.gettempdir(), f"dcc_bridge_debugpy_{pid}.log")
+    ps1_file = os.path.join(tempfile.gettempdir(), f"dcc_bridge_debugpy_{pid}.ps1")
+
+    python_path = cmd[0]
+    # 其余参数原样拼接；含空格的参数加引号
+    pip_args = " ".join(f'"{a}"' if " " in a else a for a in cmd[1:])
+    ps1 = (
+        f'$py = "{python_path}"\n'
+        f'& $py {pip_args} 2>&1 | Out-File -Encoding utf8 "{out_file}"\n'
+        f"exit $LASTEXITCODE\n"
+    )
+    with open(ps1_file, "w", encoding="utf-8") as f:
+        f.write(ps1)
+    try:
+        exit_code = _shell_execute_ex_runas(
+            "powershell.exe",
+            f'-NoProfile -ExecutionPolicy Bypass -File "{ps1_file}"',
+        )
+        output = ""
+        try:
+            with open(out_file, "r", encoding="utf-8", errors="replace") as f:
+                output = f.read()
+        except FileNotFoundError:
+            output = ""
+        return exit_code, output
+    finally:
+        for p in (ps1_file, out_file):
+            try:
+                os.remove(p)
+            except OSError:
+                pass
 
 
 def install_debugpy(python_path: str, pip_index_url: str = ""):
@@ -26,6 +132,23 @@ def install_debugpy(python_path: str, pip_index_url: str = ""):
     print(f"[DEBUG] install_debugpy: sys.executable={sys.executable}")
     print(f"[DEBUG] install_debugpy: pip_index_url={pip_index_url}")
     print(f"[DEBUG] install_debugpy: running: {' '.join(cmd)}")
+
+    # Windows 且非管理员时，普通进程无法写入 DCC 受 UAC 保护的 site-packages，
+    # 必须先提权再安装，否则 pip 会回退到用户全局目录导致 DCC 内 import 失败。
+    if sys.platform == "win32" and not _is_user_admin():
+        print(
+            "[DEBUG] install_debugpy: 非管理员进程，通过 UAC 提权安装到 DCC 内置 site-packages"
+        )
+        try:
+            exit_code, output = _run_pip_elevated(cmd)
+        except RuntimeError as e:
+            raise RuntimeError(
+                f"[ERROR] install_debugpy: 管理员提权失败（可能用户取消了 UAC）：{e}"
+            )
+        sys.stdout.write(output)
+        if exit_code != 0:
+            raise subprocess.CalledProcessError(exit_code, cmd, output, "")
+        return output
 
     try:
         result = subprocess.run(cmd, capture_output=True, check=True, text=True)
@@ -69,6 +192,55 @@ def install_debugpy(python_path: str, pip_index_url: str = ""):
         return result.stdout
     except subprocess.CalledProcessError as e:
         print(f"[ERROR] install_debugpy failed: {e}")
+        print(f"[ERROR] stdout: {e.stdout}")
+        print(f"[ERROR] stderr: {e.stderr}")
+        raise
+
+
+def uninstall_debugpy(python_path: str, pip_index_url: str = ""):
+    if python_path is None:
+        return "[ERROR] uninstall_debugpy: python_path is None, cannot uninstall debugpy"
+
+    cmd = [python_path, "-m", "pip", "uninstall", "-y", "debugpy"]
+    if pip_index_url:
+        cmd.extend(["-i", pip_index_url])
+
+    print(f"[DEBUG] uninstall_debugpy: python_path={python_path}")
+    print(f"[DEBUG] uninstall_debugpy: running: {' '.join(cmd)}")
+
+    # 与 install_debugpy 同理：Windows 非管理员进程无法删除受 UAC 保护的
+    # DCC site-packages 中的 debugpy，需先提权再卸载。
+    if sys.platform == "win32" and not _is_user_admin():
+        print(
+            "[DEBUG] uninstall_debugpy: 非管理员进程，通过 UAC 提权卸载 DCC 内置 site-packages 中的 debugpy"
+        )
+        try:
+            exit_code, output = _run_pip_elevated(cmd)
+        except RuntimeError as e:
+            raise RuntimeError(
+                f"[ERROR] uninstall_debugpy: 管理员提权失败（可能用户取消了 UAC）：{e}"
+            )
+        sys.stdout.write(output)
+        # pip uninstall 对“未安装”的包返回 0 并提示 Skipping，仍视为成功；
+        # 仅当确实卸载失败（且非“未安装”）时才抛出。
+        if exit_code != 0 and "not installed" not in output and "Skipping" not in output:
+            raise subprocess.CalledProcessError(exit_code, cmd, output, "")
+        return output
+
+    try:
+        result = subprocess.run(cmd, capture_output=True, check=True, text=True)
+        print(f"[DEBUG] uninstall_debugpy: returncode={result.returncode}")
+        sys.stdout.write(result.stdout)
+        if result.stderr:
+            sys.stderr.write(result.stderr)
+        return result.stdout
+    except subprocess.CalledProcessError as e:
+        # pip uninstall 对已不存在的包仍返回 0，这里仅在确实失败时提示
+        combined = f"{e.stdout}\n{e.stderr}"
+        if "not installed" in combined or "Skipping" in combined:
+            print("[DEBUG] uninstall_debugpy: debugpy 未安装，跳过")
+            return combined
+        print(f"[ERROR] uninstall_debugpy failed: {e}")
         print(f"[ERROR] stdout: {e.stdout}")
         print(f"[ERROR] stderr: {e.stderr}")
         raise

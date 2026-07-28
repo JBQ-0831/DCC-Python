@@ -1,7 +1,9 @@
 """
 通用 TCP 服务端模块
-基于 QThread 实现，支持多 DCC（Maya、3ds Max、Substance Painter 等）
-通过 Qt Signal 将代码执行请求投递到主线程
+
+基于 threading.Thread 实现，提供后台监听服务，在收到请求时执行 Python 代码。
+与具体 DCC 框架（Qt 等）无关：主线程/目标线程的派发由各 DCC 的
+adapter.run_on_main_thread 决定（如 Blender 用 bpy.app.timers 派发到主线程）。
 """
 
 from __future__ import annotations
@@ -13,36 +15,22 @@ import sys
 import threading
 import traceback
 
-try:
-    from PySide2.QtCore import QObject, QThread, Signal
-    from PySide2.QtGui import QIcon
-    from PySide2.QtWidgets import QToolButton
-except ImportError:
-    from PySide6.QtCore import QObject, QThread, Signal
-    from PySide6.QtGui import QIcon
-    from PySide6.QtWidgets import QToolButton
-
 from .protocol import Request, Response, decode_message, encode_message
 
 
-class RequestHandler(QObject):
+class RequestHandler:
     """
-    请求处理器（运行在主线程）
+    请求处理器
 
-    通过 Signal 接收来自 SocketServerThread 的请求，
-    在主线程中执行代码并返回结果。
+    收到请求后在目标上下文（由 adapter.run_on_main_thread 决定）中执行代码并返回结果。
+    本身不依赖任何 GUI 框架。
     """
-
-    execute_request = Signal(object, dict, object)
-    """Signal: (connection_object, request_dict, done_event)"""
 
     def __init__(self, adapter):
-        super().__init__()
         self.adapter = adapter
         self.logger = adapter.get_logger()
-        self.execute_request.connect(self._handle_request)
 
-    def _handle_request(self, conn, request_data: dict, done_event):
+    def handle(self, conn, request_data: dict, done_event):
         try:
             request = Request.from_dict(request_data)
         except Exception as e:
@@ -50,7 +38,7 @@ class RequestHandler(QObject):
             try:
                 response = Response.failure(id="unknown", message=f"Invalid request: {e}")
                 conn.send(encode_message(response))
-            except:
+            except Exception:
                 pass
             finally:
                 done_event.set()
@@ -61,7 +49,9 @@ class RequestHandler(QObject):
         except Exception as e:
             self.logger.error(f"Error processing request: {e}")
             self.logger.error(traceback.format_exc())
-            response = Response.failure(id=request.id, message=str(e), traceback=traceback.format_exc())
+            response = Response.failure(
+                id=request.id, message=str(e), traceback=traceback.format_exc()
+            )
 
         try:
             conn.send(encode_message(response))
@@ -95,31 +85,42 @@ class RequestHandler(QObject):
                     sys.stderr = old_stderr
 
                 from .execute import execute_code, main
+
                 if source is not None:
                     # CLI / 外部工具直接发送代码字符串
                     execute_code(source, exec_origin or "<dcc>", is_debugging)
                 else:
-                    main(exec_file=exec_file, exec_origin=exec_origin,
-                         name_var=name_var, is_debugging=is_debugging)
+                    main(
+                        exec_file=exec_file,
+                        exec_origin=exec_origin,
+                        name_var=name_var,
+                        is_debugging=is_debugging,
+                    )
 
             elif method == "reload":
                 workspace_folders = params.get("workspace_folders", [])
                 from .reload import reload as _reload
+
                 _reload(workspace_folders)
 
             elif method == "start_debugpy":
-                # 临时恢复 stdout/stderr，让所有日志和 debugpy 的调试信息能实时输出到控制台
+                # 临时恢复 stdout/stderr，让所有日志和 debugpy 的调试信息能实时输出
                 sys.stdout = old_stdout
                 sys.stderr = old_stderr
                 try:
                     port = params.get("port", 7012)
                     python_path = params.get("python_path") or self.adapter.get_python_path()
-                    self.logger.info(f"[DEBUG] Handling start_debugpy: port={port}, python_path={python_path}")
+                    self.logger.info(
+                        f"[DEBUG] Handling start_debugpy: port={port}, python_path={python_path}"
+                    )
                     try:
                         from .debug import start_debugpy_server
+
                         self.logger.info("[DEBUG] import start_debugpy_server succeeded")
                     except Exception as import_err:
-                        self.logger.error(f"[ERROR] Failed to import start_debugpy_server: {import_err}")
+                        self.logger.error(
+                            f"[ERROR] Failed to import start_debugpy_server: {import_err}"
+                        )
                         self.logger.error(traceback.format_exc())
                         raise
                     result = start_debugpy_server(port, python_path, self.adapter)
@@ -127,7 +128,7 @@ class RequestHandler(QObject):
 
                     debug_logs = [
                         f"[DEBUG] Handling start_debugpy: port={port}, python_path={python_path}",
-                        f"[DEBUG] start_debugpy_server returned: {result}"
+                        f"[DEBUG] start_debugpy_server returned: {result}",
                     ]
                     return Response.success(id=request.id, output=debug_logs)
                 finally:
@@ -140,8 +141,12 @@ class RequestHandler(QObject):
                 # VS Code 的 DCC Python 输出频道，而非直接输出到 DCC 控制台
                 python_path = params.get("python_path") or self.adapter.get_python_path()
                 pip_index_url = params.get("pip_index_url", "")
-                self.logger.info(f"[DEBUG] Handling install_debugpy: python_path={python_path}, pip_index_url={pip_index_url}")
+                self.logger.info(
+                    f"[DEBUG] Handling install_debugpy: python_path={python_path}, "
+                    f"pip_index_url={pip_index_url}"
+                )
                 from .debug import install_debugpy
+
                 install_debugpy(python_path, pip_index_url)
 
             elif method == "eval_function":
@@ -150,7 +155,9 @@ class RequestHandler(QObject):
                 kwargs = params.get("kwargs", {})
 
                 if not module_name or not func_name:
-                    return Response.failure(id=request.id, message="Missing module or function name")
+                    return Response.failure(
+                        id=request.id, message="Missing module or function name"
+                    )
 
                 module = __import__(module_name, fromlist=[func_name])
                 func = getattr(module, func_name)
@@ -181,34 +188,32 @@ class RequestHandler(QObject):
             error_detail = traceback.format_exc()
             self.logger.error(f"Execution failed: {e}")
             self.logger.error(f"Error detail: {error_detail}")
-            return Response.failure(id=request.id, message=str(e), traceback=error_detail)
+            return Response.failure(
+                id=request.id, message=str(e), traceback=error_detail
+            )
 
         finally:
             sys.stdout = old_stdout
             sys.stderr = old_stderr
 
 
-class SocketServerThread(QThread):
+class SocketServerThread(threading.Thread):
     """
-    Socket 服务线程（运行在后台）
+    后台 Socket 服务线程
 
-    监听指定端口，接收客户端连接，解析请求并通过 Signal 投递到主线程。
+    监听指定端口，接收客户端连接，解析请求并通过 adapter.run_on_main_thread
+    将处理派发到目标上下文（主线程或后台线程，取决于 DCC），不依赖任何 GUI 框架。
     """
 
-    log_signal = Signal(str)
-    """Signal: 日志消息"""
-
-    def __init__(self, adapter,port: int = 7002, host: str = "127.0.0.1" ):
-        super().__init__()
+    def __init__(self, adapter, port: int = 7002, host: str = "127.0.0.1"):
+        super().__init__(daemon=True)
         self.adapter = adapter
         self.logger = adapter.get_logger()
-
         self.port = port
         self.host = host
 
         self.server_socket = None
         self.running = True
-
         self.request_handler = RequestHandler(adapter)
 
     def run(self):
@@ -225,11 +230,11 @@ class SocketServerThread(QThread):
             while self.running:
                 try:
                     conn, addr = self.server_socket.accept()
-                    # self._log(f"Client connected: {addr}")
+                    # 每个客户端连接用独立后台线程处理，支持长连接多次请求
                     threading.Thread(
                         target=self._handle_client,
                         args=(conn, addr),
-                        daemon=True
+                        daemon=True,
                     ).start()
                 except socket.timeout:
                     continue
@@ -263,7 +268,7 @@ class SocketServerThread(QThread):
                         if len(buffer) < 4:
                             break
 
-                        length = struct.unpack('>I', buffer[:4])[0]
+                        length = struct.unpack(">I", buffer[:4])[0]
                         if len(buffer) < 4 + length:
                             break
 
@@ -276,9 +281,14 @@ class SocketServerThread(QThread):
                             continue
 
                         if isinstance(message, Request):
-                            # 等待主线程处理完成，但不关闭连接
+                            # 等待目标上下文处理完成，但不关闭连接
                             done_event = threading.Event()
-                            self.request_handler.execute_request.emit(conn, message.to_dict(), done_event)
+                            self.adapter.run_on_main_thread(
+                                self.request_handler.handle,
+                                conn,
+                                message.to_dict(),
+                                done_event,
+                            )
                             done_event.wait(timeout=60.0)
                         else:
                             self._log("Received non-request message, ignoring")
@@ -297,7 +307,7 @@ class SocketServerThread(QThread):
         finally:
             try:
                 conn.close()
-            except:
+            except Exception:
                 pass
 
     def _cleanup(self):
@@ -315,90 +325,15 @@ class SocketServerThread(QThread):
     def stop(self):
         self._log("Stopping server...")
         self.running = False
-
-    def _log(self, message: str):
-        # 日志通过 log_signal 统一输出（由 SocketServiceToggleTool 连接至 logger），
-        # 避免直接调用 logger.info 导致双重输出。
-        if self.log_signal:
-            self.log_signal.emit(message)
-
-
-class SocketServiceToggleTool:
-    """
-    服务端切换工具类
-
-    提供启动/停止服务端的功能，可用于创建工具栏按钮。
-    """
-
-    def __init__(self, adapter, port: int = 7002, host: str = "127.0.0.1"):
-        self.adapter = adapter
-        self.port = port
-        self.host = host
-        self.logger = adapter.get_logger()
-        self.server_thread = None
-        self.toolbutton = None
-
+        # 关闭监听 socket 以唤醒 accept() 阻塞，使 run() 尽快退出
         try:
-            self._create_toolbutton()
+            if self.server_socket:
+                self.server_socket.close()
         except Exception:
             pass
-
-    def _create_toolbutton(self):
-        self.toolbutton = QToolButton()
-        self.toolbutton.setCheckable(True)
-        self.toolbutton.setToolTip(f"Toggle DCC Bridge Server (port {self.port})")
-
-        try:
-            current_dir = __import__('pathlib').Path(__file__).resolve().parent
-            icon_path = current_dir.parent / "icon.png"
-            if icon_path.exists():
-                self.toolbutton.setIcon(QIcon(str(icon_path)))
-        except Exception:
-            pass
-
-        self.toolbutton.clicked.connect(self._on_toggled)
-
-        try:
-            import importlib
-            dcc_module = importlib.import_module(self.adapter.name)
-            if hasattr(dcc_module, 'ui') and hasattr(dcc_module.ui, 'add_plugins_toolbar_widget'):
-                dcc_module.ui.add_plugins_toolbar_widget(self.toolbutton)
-        except Exception:
-            pass
-
-    def start(self):
-        if self.server_thread is None:
-            self.server_thread = SocketServerThread(
-                adapter=self.adapter,
-                port=self.port,
-                host=self.host,
-            )
-            self.server_thread.log_signal.connect(lambda msg: self.logger.info(msg))
-            self.server_thread.start()
-
-            if self.toolbutton:
-                self.toolbutton.setChecked(True)
-        else:
-            self.logger.warning("Server is already running")
-
-    def stop(self):
-        if self.server_thread is not None:
-            self.server_thread.stop()
-            self.server_thread.quit()
-            self.server_thread.wait(2000)
-            self.server_thread = None
-            self.logger.info("Server stopped")
-
-            if self.toolbutton:
-                self.toolbutton.setChecked(False)
-        else:
-            self.logger.warning("Server is not running")
-
-    def _on_toggled(self):
-        if self.toolbutton.isChecked():
-            self.start()
-        else:
-            self.stop()
 
     def is_running(self) -> bool:
-        return self.server_thread is not None and self.server_thread.isRunning()
+        return self.running and self.is_alive()
+
+    def _log(self, message: str):
+        self.logger.info(message)

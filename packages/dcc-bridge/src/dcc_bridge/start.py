@@ -66,6 +66,14 @@ def detect_dcc() -> str:
     except ImportError:
         pass
 
+    # 检测 Blender
+    try:
+        import bpy
+
+        return "blender"
+    except ImportError:
+        pass
+
     # 未检测到特定 DCC，使用通用适配器
     return "generic"
 
@@ -126,6 +134,15 @@ def get_adapter(dcc_name: str):
             print("HoudiniAdapter not available, using generic adapter")
             return DCCAdapter()
 
+    elif dcc_name == "blender":
+        try:
+            from dcc_bridge.adapters.blender import BlenderAdapter
+
+            return BlenderAdapter()
+        except ImportError:
+            print("BlenderAdapter not available, using generic adapter")
+            return DCCAdapter()
+
     else:
         # 通用适配器
         return DCCAdapter()
@@ -162,7 +179,7 @@ def start_server(
         dcc_name: DCC 类型，默认自动检测
 
     Returns:
-        SocketServiceToggleTool 实例
+        SocketServerThread 实例（服务端后台线程）
     """
     # 自动检测 DCC 环境
     dcc_name = dcc_name or detect_dcc()
@@ -170,7 +187,7 @@ def start_server(
 
     try:
         from dcc_bridge import discovery
-        from dcc_bridge.server import SocketServiceToggleTool
+        from dcc_bridge.server import SocketServerThread
 
         # 端口冲突时自动递增
         actual_port = _find_available_port(port, host)
@@ -179,10 +196,10 @@ def start_server(
 
         adapter = get_adapter(dcc_name)
 
-        tool = SocketServiceToggleTool(
+        server_thread = SocketServerThread(
             adapter=adapter, port=actual_port, host=host
         )
-        tool.start()
+        server_thread.start()
 
         # 注册进程发现文件
         discovery.register_instance(
@@ -199,7 +216,7 @@ def start_server(
         print(f"DCC Bridge Server started on {host}:{actual_port}")
         print("Waiting for connections...")
 
-        return tool
+        return server_thread
 
     except ImportError as e:
         print(f"Import error: {e}")

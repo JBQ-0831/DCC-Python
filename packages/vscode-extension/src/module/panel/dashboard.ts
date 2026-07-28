@@ -212,6 +212,12 @@ export function registerDashboardCommands(context: vscode.ExtensionContext) {
         }),
         vscode.commands.registerCommand('dcc-python-toolkit.dashboard.unsetupHoudini', async () => {
             await runSetupCommand('houdini', true);
+        }),
+        vscode.commands.registerCommand('dcc-python-toolkit.dashboard.setupBlender', async () => {
+            await runSetupCommand('blender');
+        }),
+        vscode.commands.registerCommand('dcc-python-toolkit.dashboard.unsetupBlender', async () => {
+            await runSetupCommand('blender', true);
         })
     );
 }

@@ -6,6 +6,7 @@ DCC 适配器包
 - max: MaxAdapter
 - painter: SubstancePainterAdapter
 - houdini: HoudiniAdapter
+- blender: BlenderAdapter
 """
 
 from __future__ import annotations
@@ -24,6 +25,11 @@ try:
 except ImportError:
     HoudiniAdapter = None  # type: ignore
 
+try:
+    from .blender import BlenderAdapter
+except ImportError:
+    BlenderAdapter = None  # type: ignore
+
 __all__ = [
     "DCCAdapter",
     "Logger",
@@ -31,4 +37,5 @@ __all__ = [
     "MaxAdapter",
     "SubstancePainterAdapter",
     "HoudiniAdapter",
+    "BlenderAdapter",
 ]

@@ -346,10 +346,11 @@ else:
 
     def unsetup(self, version: str | None = None) -> bool:
         """
-        移除自启动脚本
+        移除自启动脚本，并为每个版本卸载该 DCC Python 环境中的 debugpy
 
-        指定 version 时只移除该版本；不指定时遍历所有 >= min_supported_version 的已安装版本。
+        指定 version 时只处理该版本；不指定时遍历所有 >= min_supported_version 的已安装版本。
         全部成功返回 True，任一失败返回 False。
+        debugpy 卸载失败仅输出警告，不阻断 unsetup 流程。
         """
         versions = self._get_target_versions(version)
         if not versions:
@@ -360,6 +361,26 @@ else:
         for ver in versions:
             if not self._unsetup_single(ver):
                 all_success = False
+            # 卸载该版本 DCC Python 环境中的 debugpy
+            python_path = self.get_python_path(ver)
+            if python_path and os.path.exists(python_path):
+                try:
+                    from ..debug import uninstall_debugpy
+
+                    print(
+                        f"Uninstalling debugpy for {self.dcc_name} {ver} (python={python_path})..."
+                    )
+                    uninstall_debugpy(python_path)
+                    print(f"debugpy uninstalled successfully for {self.dcc_name} {ver}")
+                except Exception as e:
+                    print(
+                        f"Warning: debugpy uninstallation failed for {self.dcc_name} {ver}: {e}"
+                    )
+                    print("  debugpy 卸载失败不影响自启动脚本移除。")
+            else:
+                print(
+                    f"Warning: Python interpreter not found for {self.dcc_name} {ver}, skipping debugpy uninstall"
+                )
         return all_success
 
     def _unsetup_single(self, version: str) -> bool:
@@ -424,4 +445,8 @@ def get_setup(dcc_name: str) -> DCCSetup | None:
         from .houdini import HoudiniSetup
 
         return HoudiniSetup()
+    if dcc_name == "blender":
+        from .blender import BlenderSetup
+
+        return BlenderSetup()
     return None

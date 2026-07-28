@@ -2,7 +2,7 @@
   "name": "dcc-python-toolkit",
   "displayName": "DCC Python ToolKit",
   "publisher": "JBQ",
-  "description": "Tools to assist when writing Python code for Maya, 3ds Max, Houdini, Substance Painter, and other DCC applications",
+  "description": "Tools to assist when writing Python code for Maya, 3ds Max, Houdini, Blender, Substance Painter, and other DCC applications",
   "version": "1.1.0",
   "engines": {
     "vscode": "^1.108.0"
@@ -16,6 +16,7 @@
     "maya",
     "3dsmax",
     "houdini",
+    "blender",
     "substance painter",
     "maxscript",
     "cmds",
@@ -122,6 +123,18 @@
         "command": "dcc-python-toolkit.dashboard.unsetupHoudini",
         "title": "Remove Houdini Auto-Start",
         "icon": "$(trash)"
+      },
+      {
+        "category": "DCC Python ToolKit",
+        "command": "dcc-python-toolkit.dashboard.setupBlender",
+        "title": "Setup Blender Auto-Start",
+        "icon": "./icons/blender.svg"
+      },
+      {
+        "category": "DCC Python ToolKit",
+        "command": "dcc-python-toolkit.dashboard.unsetupBlender",
+        "title": "Remove Blender Auto-Start",
+        "icon": "$(trash)"
       }
     ],
     "views": {
@@ -179,6 +192,14 @@
           "when": "false"
         },
         {
+          "command": "dcc-python-toolkit.dashboard.setupBlender",
+          "when": "false"
+        },
+        {
+          "command": "dcc-python-toolkit.dashboard.unsetupBlender",
+          "when": "false"
+        },
+        {
           "command": "dcc-python-toolkit.dashboard.selectInstance",
           "when": "false"
         }
@@ -208,6 +229,11 @@
           "command": "dcc-python-toolkit.dashboard.setupHoudini",
           "when": "view == dccPythonDashboard",
           "group": "navigation@5"
+        },
+        {
+          "command": "dcc-python-toolkit.dashboard.setupBlender",
+          "when": "view == dccPythonDashboard",
+          "group": "navigation@6"
         }
       ],
       "view/item/context": [

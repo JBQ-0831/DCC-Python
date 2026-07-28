@@ -69,7 +69,7 @@ def cleanup(ctx, yes: bool) -> None:
         click.echo("即将执行以下清理操作：")
         click.echo(f"  1. 删除用户数据目录: {user_data_dir}")
         if dcc_names:
-            click.echo(f"  2. 移除以下 DCC 的自启动脚本: {', '.join(dcc_names)}")
+            click.echo(f"  2. 移除以下 DCC 的自启动脚本并卸载 debugpy: {', '.join(dcc_names)}")
         else:
             click.echo("  2. 未发现可清理的 DCC 自启动脚本")
         click.echo("")

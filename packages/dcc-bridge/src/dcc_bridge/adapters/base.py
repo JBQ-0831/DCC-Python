@@ -109,6 +109,25 @@ class DCCAdapter:
         """
         return True
 
+    def run_on_main_thread(self, callback, *args, **kwargs):
+        """
+        在 DCC 的主线程（或合适的目标上下文）中执行回调
+
+        默认实现直接在调用线程（服务端后台线程）中执行，
+        适用于不强制要求主线程的 DCC / 通用环境。
+
+        需要主线程的 DCC（如 Blender）应覆写此方法，
+        例如通过 bpy.app.timers 把回调派发到主线程。
+
+        Args:
+            callback: 要执行的可调用对象
+            *args, **kwargs: 传递给 callback 的参数
+
+        Returns:
+            callback 的执行结果
+        """
+        return callback(*args, **kwargs)
+
     def ensure_main_thread(self) -> None:
         """
         确保在主线程中执行（如果需要）
