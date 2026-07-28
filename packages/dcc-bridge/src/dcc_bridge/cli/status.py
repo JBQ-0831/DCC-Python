@@ -9,14 +9,14 @@ import click
 
 from .. import discovery
 from ..client import DCCClientError, resolve_client
-from ..dcc_types import normalize_dcc_type
+from ..dcc_names import normalize_dcc_name
 
 
 def _target_options(func):
     """为 status/ping 添加目标解析选项（端口/类型/版本/输出格式）"""
     func = click.option("--version", "dcc_version", type=str, default=None, help="Filter by DCC version.\nDCC 版本过滤。")(func)
     func = click.option("--plain", is_flag=True, default=False, help="Output in plain text.\n纯文本输出。")(func)
-    func = click.option("--dcc-type", type=str, default=None, help="Filter by DCC type.\nDCC 类型过滤。")(func)
+    func = click.option("--dcc-name", type=str, default=None, help="Filter by DCC type.\nDCC 类型过滤。")(func)
     func = click.option("--port", type=int, default=None, help="Target DCC port.\n目标 DCC 端口。")(func)
     return func
 
@@ -24,22 +24,22 @@ def _target_options(func):
 @click.command(name="status")
 @_target_options
 @click.pass_context
-def status(ctx, port, dcc_type, plain, dcc_version) -> None:
+def status(ctx, port, dcc_name, plain, dcc_version) -> None:
     """Show current DCC bridge status.
 
     显示当前 DCC 桥接状态。
     """
-    dcc_type = normalize_dcc_type(dcc_type)
+    dcc_name = normalize_dcc_name(dcc_name)
     instances = discovery.list_instances()
     status_data = {
         "instances": instances,
         "count": len(instances),
     }
 
-    # 指定 port / dcc_type / dcc_version 时附加 ping 结果
-    if port or dcc_type or dcc_version:
+    # 指定 port / dcc_name / dcc_version 时附加 ping 结果
+    if port or dcc_name or dcc_version:
         try:
-            client = resolve_client(dcc_type=dcc_type, port=port, version=dcc_version)
+            client = resolve_client(dcc_name=dcc_name, port=port, version=dcc_version)
             with client:
                 status_data["ping"] = client.ping()
         except DCCClientError as e:
@@ -49,7 +49,7 @@ def status(ctx, port, dcc_type, plain, dcc_version) -> None:
         click.echo(f"Running DCC instances: {status_data['count']}")
         for info in instances:
             click.echo(
-                f"  {info.get('dcc_type', 'unknown')}:{info.get('port', '?')} "
+                f"  {info.get('dcc_name', 'unknown')}:{info.get('port', '?')} "
                 f"v{info.get('dcc_version', '?')}"
             )
         if "ping" in status_data:
@@ -63,14 +63,14 @@ def status(ctx, port, dcc_type, plain, dcc_version) -> None:
 @click.command(name="ping")
 @_target_options
 @click.pass_context
-def ping(ctx, port, dcc_type, plain, dcc_version) -> None:
+def ping(ctx, port, dcc_name, plain, dcc_version) -> None:
     """Ping the DCC bridge server.
 
     Ping DCC 服务。
     """
-    dcc_type = normalize_dcc_type(dcc_type)
+    dcc_name = normalize_dcc_name(dcc_name)
     try:
-        client = resolve_client(dcc_type=dcc_type, port=port, version=dcc_version)
+        client = resolve_client(dcc_name=dcc_name, port=port, version=dcc_version)
     except DCCClientError as e:
         if plain:
             click.echo(f"Failed to reach DCC bridge server: {e}", err=True)
@@ -87,7 +87,7 @@ def ping(ctx, port, dcc_type, plain, dcc_version) -> None:
             result["success"] = True
             if plain:
                 click.echo("DCC bridge server is reachable.")
-                click.echo(f"DCC type: {result.get('dcc_type', 'unknown')}")
+                click.echo(f"DCC type: {result.get('dcc_name', 'unknown')}")
                 click.echo(f"Python path: {result.get('python_path', 'unknown')}")
             else:
                 click.echo(json.dumps(result, ensure_ascii=False, indent=2))

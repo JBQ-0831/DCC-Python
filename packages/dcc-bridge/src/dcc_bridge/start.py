@@ -16,9 +16,6 @@ DCC TCP 服务端启动脚本
 
 from __future__ import annotations
 
-import os
-import sys
-
 DEFAULT_PORT = 7002
 DEFAULT_HOST = "127.0.0.1"
 
@@ -32,33 +29,45 @@ def detect_dcc() -> str:
     # 检测 Maya
     try:
         import maya.cmds
-        return 'maya'
+
+        return "maya"
     except ImportError:
         pass
 
     # 检测 3ds Max
     try:
         import pymxs
-        return '3dsmax'
+
+        return "3dsmax"
     except ImportError:
         pass
 
     # 检测 Substance Painter
     try:
         import substance_painter
-        return 'substance_painter'
+
+        return "substance_painter"
     except ImportError:
         pass
 
     # 检测 Substance Designer
     try:
         import sd
-        return 'substance_designer'
+
+        return "substance_designer"
+    except ImportError:
+        pass
+
+    # 检测 Houdini
+    try:
+        import hou
+
+        return "houdini"
     except ImportError:
         pass
 
     # 未检测到特定 DCC，使用通用适配器
-    return 'generic'
+    return "generic"
 
 
 def get_adapter(dcc_name: str):
@@ -72,36 +81,49 @@ def get_adapter(dcc_name: str):
     """
     from dcc_bridge.adapters.base import DCCAdapter
 
-    if dcc_name == 'maya':
+    if dcc_name == "maya":
         try:
             from dcc_bridge.adapters.maya import MayaAdapter
+
             return MayaAdapter()
         except ImportError:
             print("MayaAdapter not available, using generic adapter")
             return DCCAdapter()
 
-    elif dcc_name == '3dsmax':
+    elif dcc_name == "3dsmax":
         try:
             from dcc_bridge.adapters.max import MaxAdapter
+
             return MaxAdapter()
         except ImportError:
             print("MaxAdapter not available, using generic adapter")
             return DCCAdapter()
 
-    elif dcc_name == 'substance_painter':
+    elif dcc_name == "substance_painter":
         try:
             from dcc_bridge.adapters.painter import SubstancePainterAdapter
+
             return SubstancePainterAdapter()
         except ImportError:
             print("SubstancePainterAdapter not available, using generic adapter")
             return DCCAdapter()
 
-    elif dcc_name == 'substance_designer':
+    elif dcc_name == "substance_designer":
         try:
             from dcc_bridge.adapters.designer import SubstanceDesignerAdapter
+
             return SubstanceDesignerAdapter()
         except ImportError:
             print("SubstanceDesignerAdapter not available, using generic adapter")
+            return DCCAdapter()
+
+    elif dcc_name == "houdini":
+        try:
+            from dcc_bridge.adapters.houdini import HoudiniAdapter
+
+            return HoudiniAdapter()
+        except ImportError:
+            print("HoudiniAdapter not available, using generic adapter")
             return DCCAdapter()
 
     else:
@@ -109,32 +131,12 @@ def get_adapter(dcc_name: str):
         return DCCAdapter()
 
 
-def get_dcc_version(dcc_name: str) -> str:
-    """尝试获取 DCC 版本"""
-    try:
-        if dcc_name == 'maya':
-            import maya.cmds as cmds
-            return cmds.about(version=True)
-        elif dcc_name == '3dsmax':
-            import pymxs
-            version = pymxs.runtime.maxVersion()
-            return str(version[0] // 1000 + 1998)  # 26000 -> 2024
-        elif dcc_name == 'substance_painter':
-            from dcc_bridge.setup.painter import PainterSetup
-            versions = PainterSetup().discover_versions()
-            return versions[0] if versions else ""
-        elif dcc_name == 'substance_designer':
-            from dcc_bridge.setup.designer import DesignerSetup
-            versions = DesignerSetup().discover_versions()
-            return versions[0] if versions else ""
-    except Exception:
-        pass
-    return ""
-
-
-def _find_available_port(start_port: int, host: str = DEFAULT_HOST, max_tries: int = 100) -> int:
+def _find_available_port(
+    start_port: int, host: str = DEFAULT_HOST, max_tries: int = 100
+) -> int:
     """从 start_port 开始递增，找到可用端口"""
     import socket as _socket
+
     for offset in range(max_tries):
         candidate = start_port + offset
         try:
@@ -147,7 +149,9 @@ def _find_available_port(start_port: int, host: str = DEFAULT_HOST, max_tries: i
     return start_port  # fallback，让 server 自行报错
 
 
-def start_server(port: int = DEFAULT_PORT, host: str = DEFAULT_HOST, dcc_type: str = None):
+def start_server(
+    port: int = DEFAULT_PORT, host: str = DEFAULT_HOST, dcc_name: str = None
+):
     """启动 DCC Bridge TCP 服务端
 
     如果指定端口已被占用，自动递增寻找可用端口。
@@ -155,18 +159,18 @@ def start_server(port: int = DEFAULT_PORT, host: str = DEFAULT_HOST, dcc_type: s
     Args:
         port: 监听端口，默认 7002
         host: 监听地址，默认 127.0.0.1
-        dcc_type: DCC 类型，默认自动检测
+        dcc_name: DCC 类型，默认自动检测
 
     Returns:
         SocketServiceToggleTool 实例
     """
     # 自动检测 DCC 环境
-    dcc_name = dcc_type or detect_dcc()
+    dcc_name = dcc_name or detect_dcc()
     print(f"Detected DCC: {dcc_name}")
 
     try:
-        from dcc_bridge.server import SocketServiceToggleTool
         from dcc_bridge import discovery
+        from dcc_bridge.server import SocketServiceToggleTool
 
         # 端口冲突时自动递增
         actual_port = _find_available_port(port, host)
@@ -174,19 +178,17 @@ def start_server(port: int = DEFAULT_PORT, host: str = DEFAULT_HOST, dcc_type: s
             print(f"Port {port} is in use, using {actual_port} instead")
 
         adapter = get_adapter(dcc_name)
-        adapter.name = dcc_name
 
-        tool = SocketServiceToggleTool(adapter, port=actual_port, host=host, dcc_type=dcc_name)
+        tool = SocketServiceToggleTool(
+            adapter=adapter, port=actual_port, host=host
+        )
         tool.start()
 
         # 注册进程发现文件
-        dcc_version = get_dcc_version(dcc_name)
         discovery.register_instance(
-            dcc_type=dcc_name,
+            adapter=adapter,
             port=actual_port,
             host=host,
-            dcc_version=dcc_version,
-            python_path=adapter.get_python_path(),
         )
 
         # 注意：不注册 atexit 清理。DCC 崩溃/强制结束时 atexit 不可靠，
@@ -195,7 +197,7 @@ def start_server(port: int = DEFAULT_PORT, host: str = DEFAULT_HOST, dcc_type: s
         logger = adapter.get_logger()
         logger.info(f"DCC Bridge Server started on {host}:{actual_port}")
         print(f"DCC Bridge Server started on {host}:{actual_port}")
-        print(f"Waiting for connections...")
+        print("Waiting for connections...")
 
         return tool
 
@@ -206,6 +208,7 @@ def start_server(port: int = DEFAULT_PORT, host: str = DEFAULT_HOST, dcc_type: s
     except Exception as e:
         print(f"Error starting server: {e}")
         import traceback
+
         traceback.print_exc()
         raise
 

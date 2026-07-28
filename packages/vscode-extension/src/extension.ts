@@ -84,7 +84,7 @@ async function autoConnectToFirstInstance() {
             return;
         }
         const parsed = JSON.parse(result.stdout);
-        const instances: { dcc_type: string; host: string; port: number }[] =
+        const instances: { dcc_name: string; host: string; port: number }[] =
             parsed && typeof parsed === 'object' && 'instances' in parsed
                 ? parsed.instances
                 : Array.isArray(parsed) ? parsed : [];
@@ -98,14 +98,14 @@ async function autoConnectToFirstInstance() {
             Logger.warning(`Auto-connect skipped: invalid instance port`);
             return;
         }
-        Logger.info(`Auto-connecting to ${first.dcc_type} @ ${first.host}:${first.port}`);
+        Logger.info(`Auto-connecting to ${first.dcc_name} @ ${first.host}:${first.port}`);
 
         const dccManager = DCCManager.getInstance();
-        dccManager.setDriverByInstance(first.host, first.port, first.dcc_type);
+        dccManager.setDriverByInstance(first.host, first.port, first.dcc_name);
         await dccManager.connect();
 
         vscode.window.showInformationMessage(
-            `已自动连接到 ${first.dcc_type} (${first.host}:${first.port})`
+            `已自动连接到 ${first.dcc_name} (${first.host}:${first.port})`
         );
     } catch {
         // 静默失败，让用户通过 Dashboard 手动选择

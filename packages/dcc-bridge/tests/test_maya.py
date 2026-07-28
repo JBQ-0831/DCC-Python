@@ -164,7 +164,7 @@ class TestGetStartupScriptName:
 # ==================== get_startup_script_content ====================
 
 class TestGetStartupScriptContent:
-    def test_contains_dcc_type(self, setup_instance):
+    def test_contains_dcc_name(self, setup_instance):
         """内容应包含 maya 标识"""
         assert "maya" in setup_instance.get_startup_script_content()
 
@@ -189,10 +189,10 @@ class TestDetectInstallations:
         assert "2022" in versions
         assert "2024" in versions
 
-    def test_installation_has_correct_dcc_type(self, setup_instance, populated_registry):
-        """dcc_type 应为 maya"""
+    def test_installation_has_correct_dcc_name(self, setup_instance, populated_registry):
+        """dcc_name 应为 maya"""
         for inst in setup_instance.detect_installations():
-            assert inst.dcc_type == "maya"
+            assert inst.dcc_name == "maya"
 
     def test_installation_root_path_from_registry(self, setup_instance, populated_registry):
         """root_path 应为注册表中的安装路径"""

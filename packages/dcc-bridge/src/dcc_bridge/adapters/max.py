@@ -54,6 +54,7 @@ class MaxAdapter(DCCAdapter):
         exe_dir = os.path.dirname(super().get_python_path())
         try:
             import pymxs
+
             version = pymxs.runtime.maxVersion()
             # 3ds Max 版本号: 2024=26000, 2023=25000, 2020=22000
             if version[0] >= 22000:
@@ -67,10 +68,12 @@ class MaxAdapter(DCCAdapter):
     def on_connected(self) -> None:
         try:
             import MaxPlus
+
             parent_window = MaxPlus.GetQMaxMainWindow()
         except:
             try:
                 import qtmax
+
                 parent_window = qtmax.GetQMaxMainWindow()
             except:
                 logger = self.get_logger()
@@ -82,3 +85,14 @@ class MaxAdapter(DCCAdapter):
         super().add_sys_path(path)
         logger = self.get_logger()
         logger.info(f"Added to {self.name} sys.path: {path}")
+
+    def get_version(self) -> str:
+        try:
+            import pymxs
+
+            version_array = pymxs.runtime.maxVersion()
+            version = str(version_array[0] // 1000 + 1998)  # 26000 -> 2024
+            print(version)
+            return version
+        except :
+            return super().get_version()

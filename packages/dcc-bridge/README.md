@@ -77,7 +77,7 @@ dcc run {file, code, stdin} [target] [选项]
 | 选项 | 类型 | 默认值 | 说明 |
 |---|---|---|---|
 | `--port` | int | 自动发现 | 指定目标 DCC 服务端口 |
-| `--dcc-type` | str | 自动发现 | 指定目标 DCC 类型（`maya`、`3dsmax`、`substance_painter`、`substance_designer` 等） |
+| `--dcc-name` | str | 自动发现 | 指定目标 DCC 类型（`maya`、`3dsmax`、`substance_painter`、`substance_designer` 等） |
 | `-r`, `--reload` | flag | 否 | 执行前先重载模块（`file` 重载文件所在目录，`code`/`stdin` 重载当前工作目录） |
 | `--origin` | str | 自动生成 | 自定义 `exec_origin`，用于标识代码来源 |
 | `--plain` | flag | 否 | 输出纯文本而非 JSON |
@@ -103,7 +103,7 @@ dcc run file ./my_tool.py --reload
 dcc run code "import pymxs; print(pymxs.rt.maxOps())" --port 7002 --timeout 10
 
 # 指定 DCC 类型（多实例同时运行时）
-dcc run code "print('maya')" --dcc-type maya
+dcc run code "print('maya')" --dcc-name maya
 
 # 纯文本输出（只打印 stdout 内容）
 dcc run code "print(1 + 2)" --plain
@@ -154,19 +154,19 @@ hello from DCC
 
 在 DCC 的启动目录中写入 `dcc_bridge_startup.py`，DCC 打开后自动启动桥接服务。同时自动为每个 DCC 版本安装 debugpy 调试模块，安装失败仅输出警告，不影响脚本注入。
 
-不指定 `dcc_type` 时，自动为 Maya、3ds Max、Substance Painter、Substance Designer 全部执行注入。
+不指定 `dcc_name` 时，自动为 Maya、3ds Max、Substance Painter、Substance Designer 全部执行注入。
 
 #### 语法
 
 ```
-dcc setup [<dcc_type>] [--version <版本号>] [--pip-index-url <镜像源>]
+dcc setup [<dcc_name>] [--version <版本号>] [--pip-index-url <镜像源>]
 ```
 
 #### 参数
 
 | 参数 | 必填 | 说明 |
 |---|---|---|
-| `dcc_type` | 否 | DCC 类型：`maya`、`3dsmax`、`substance_painter`、`substance_designer`。不指定时注入所有已支持的 DCC |
+| `dcc_name` | 否 | DCC 类型：`maya`、`3dsmax`、`substance_painter`、`substance_designer`。不指定时注入所有已支持的 DCC |
 | `--version` | 否 | 指定版本号。不指定时自动从注册表发现并注入所有已安装版本 |
 | `--pip-index-url` | 否 | pip 镜像源 URL，用于加速 debugpy 安装（如 `https://pypi.tuna.tsinghua.edu.cn/simple`） |
 
@@ -225,7 +225,7 @@ dcc setup substance_designer
 #### 语法
 
 ```
-dcc unsetup <dcc_type> [--version <版本号>]
+dcc unsetup <dcc_name> [--version <版本号>]
 ```
 
 #### 示例
@@ -251,7 +251,7 @@ dcc unsetup substance_designer
 #### 语法
 
 ```
-dcc status [--port <端口>] [--dcc-type <类型>] [--version <版本号>] [--plain]
+dcc status [--port <端口>] [--dcc-name <类型>] [--version <版本号>] [--plain]
 ```
 
 #### 示例
@@ -264,10 +264,10 @@ dcc status
 dcc status --port 7002
 
 # 对指定 DCC 类型执行 ping
-dcc status --dcc-type maya
+dcc status --dcc-name maya
 
 # 对指定版本执行 ping
-dcc status --dcc-type maya --version 2024
+dcc status --dcc-name maya --version 2024
 
 # 纯文本输出
 dcc status --plain
@@ -282,7 +282,7 @@ dcc status --plain
   "instances": [
     {
       "pid": 12345,
-      "dcc_type": "3dsmax",
+      "dcc_name": "3dsmax",
       "dcc_version": "2024",
       "host": "127.0.0.1",
       "port": 7002,
@@ -292,7 +292,7 @@ dcc status --plain
   ],
   "count": 1,
   "ping": {
-    "dcc_type": "3dsmax",
+    "dcc_name": "3dsmax",
     "python_path": "C:\\Program Files\\Autodesk\\3ds Max 2024\\python\\python.exe"
   }
 }
@@ -305,7 +305,7 @@ dcc status --plain
 ```
 Running DCC instances: 1
   3dsmax:7002 v2024
-Ping: OK - {'dcc_type': '3dsmax', 'python_path': '...'}
+Ping: OK - {'dcc_name': '3dsmax', 'python_path': '...'}
 ```
 
 ---
@@ -317,7 +317,7 @@ Ping: OK - {'dcc_type': '3dsmax', 'python_path': '...'}
 #### 语法
 
 ```
-dcc ping [--port <端口>] [--dcc-type <类型>] [--version <版本号>] [--plain]
+dcc ping [--port <端口>] [--dcc-name <类型>] [--version <版本号>] [--plain]
 ```
 
 #### 示例
@@ -330,10 +330,10 @@ dcc ping
 dcc ping --port 7002
 
 # 指定 DCC 类型
-dcc ping --dcc-type maya
+dcc ping --dcc-name maya
 
 # 指定版本
-dcc ping --dcc-type maya --version 2024
+dcc ping --dcc-name maya --version 2024
 
 # 纯文本输出
 dcc ping --plain
@@ -346,7 +346,7 @@ dcc ping --plain
 ```json
 {
   "success": true,
-  "dcc_type": "3dsmax",
+  "dcc_name": "3dsmax",
   "python_path": "C:\\Program Files\\Autodesk\\3ds Max 2024\\python\\python.exe"
 }
 ```
@@ -396,19 +396,19 @@ dcc cleanup --yes
 
 当不指定 `--port` 时，CLI 通过 `~/.dcc-bridge/instances/` 下的发现文件自动解析目标：
 
-1. 若指定 `--dcc-type`，只匹配该类型的实例
+1. 若指定 `--dcc-name`，只匹配该类型的实例
 2. 若指定 `--version`，进一步按版本筛选
 3. 若只找到一个实例，自动连接
-4. 若找到多个实例，报错并提示用 `--port` 或 `--dcc-type` 指定
+4. 若找到多个实例，报错并提示用 `--port` 或 `--dcc-name` 指定
 5. 若未找到任何实例，报错并提示先启动 DCC
 
 ---
 
 ## 服务发现与端口分配
 
-DCC 端 TCP 服务启动后会自动在 `~/.dcc-bridge/instances/{dcc_type}-{pid}.json` 写入发现文件，CLI 与 VS Code 插件通过读取这些文件零配置发现运行中的实例。
+DCC 端 TCP 服务启动后会自动在 `~/.dcc-bridge/instances/{dcc_name}-{pid}.json` 写入发现文件，CLI 与 VS Code 插件通过读取这些文件零配置发现运行中的实例。
 
-- 发现文件命名：`{dcc_type}-{pid}.json`
+- 发现文件命名：`{dcc_name}-{pid}.json`
 - 默认起始端口：`7002`，多实例时自动递增，避免端口冲突
 - 惰性清理：`list_instances` 会检查 PID 是否存活，已退出的 DCC 进程对应文件会被自动删除
 
@@ -439,7 +439,7 @@ with DCCClient(port=7002) as client:
 
 # 自动发现实例
 from dcc_bridge.client import resolve_client
-with resolve_client(dcc_type="maya") as client:
+with resolve_client(dcc_name="maya") as client:
     client.execute_file("/path/to/script.py")
 ```
 

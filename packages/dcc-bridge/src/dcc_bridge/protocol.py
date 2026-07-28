@@ -6,60 +6,51 @@
 长度前缀使用大端序（big-endian）
 """
 
+from __future__ import annotations
+
 import json
 import struct
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 
 class Request:
     """请求对象"""
 
-    def __init__(self, id: str, method: str, params: Optional[Dict[str, Any]] = None):
+    def __init__(self, id: str, method: str, params: dict[str, Any] | None = None):
         self.id = id
         self.method = method
         self.params = params or {}
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "id": self.id,
-            "method": self.method,
-            "params": self.params
-        }
+    def to_dict(self) -> dict[str, Any]:
+        return {"id": self.id, "method": self.method, "params": self.params}
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'Request':
-        return cls(
-            id=data["id"],
-            method=data["method"],
-            params=data.get("params", {})
-        )
+    def from_dict(cls, data: dict[str, Any]) -> Request:
+        return cls(id=data["id"], method=data["method"], params=data.get("params", {}))
 
 
 class Response:
     """响应对象"""
 
-    def __init__(self, id: str, result: Optional[Dict[str, Any]] = None, error: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self,
+        id: str,
+        result: dict[str, Any] | None = None,
+        error: dict[str, Any] | None = None,
+    ):
         self.id = id
         self.result = result
         self.error = error
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "id": self.id,
-            "result": self.result,
-            "error": self.error
-        }
+    def to_dict(self) -> dict[str, Any]:
+        return {"id": self.id, "result": self.result, "error": self.error}
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'Response':
-        return cls(
-            id=data["id"],
-            result=data.get("result"),
-            error=data.get("error")
-        )
+    def from_dict(cls, data: dict[str, Any]) -> Response:
+        return cls(id=data["id"], result=data.get("result"), error=data.get("error"))
 
     @classmethod
-    def success(cls, id: str, output: Optional[list] = None, **kwargs) -> 'Response':
+    def success(cls, id: str, output: list | None = None, **kwargs) -> Response:
         result = {"success": True}
         if output:
             result["output"] = output
@@ -67,14 +58,14 @@ class Response:
         return cls(id=id, result=result)
 
     @classmethod
-    def failure(cls, id: str, message: str, traceback: Optional[str] = None) -> 'Response':
+    def failure(cls, id: str, message: str, traceback: str | None = None) -> Response:
         error = {"message": message}
         if traceback:
             error["traceback"] = traceback
         return cls(id=id, error=error)
 
 
-def encode_message(data: Union[Dict[str, Any], Request, Response]) -> bytes:
+def encode_message(data: dict[str, Any] | Request | Response) -> bytes:
     """
     将数据编码为协议格式的字节串
 
@@ -88,15 +79,15 @@ def encode_message(data: Union[Dict[str, Any], Request, Response]) -> bytes:
         data = data.to_dict()
 
     json_str = json.dumps(data, ensure_ascii=False)
-    json_bytes = json_str.encode('utf-8')
+    json_bytes = json_str.encode("utf-8")
 
     length = len(json_bytes)
-    length_bytes = struct.pack('>I', length)
+    length_bytes = struct.pack(">I", length)
 
     return length_bytes + json_bytes
 
 
-def decode_message(data: bytes) -> Union[Request, Response, None]:
+def decode_message(data: bytes) -> Request | Response | None:
     """
     从字节串解码出请求或响应对象
 
@@ -109,15 +100,15 @@ def decode_message(data: bytes) -> Union[Request, Response, None]:
     if len(data) < 4:
         return None
 
-    length = struct.unpack('>I', data[:4])[0]
+    length = struct.unpack(">I", data[:4])[0]
 
     if len(data) < 4 + length:
         return None
 
-    json_bytes = data[4:4 + length]
+    json_bytes = data[4 : 4 + length]
 
     try:
-        json_str = json_bytes.decode('utf-8')
+        json_str = json_bytes.decode("utf-8")
         data_dict = json.loads(json_str)
     except (UnicodeDecodeError, json.JSONDecodeError):
         return None
@@ -128,7 +119,7 @@ def decode_message(data: bytes) -> Union[Request, Response, None]:
         return Response.from_dict(data_dict)
 
 
-def decode_raw(data: bytes) -> Optional[Dict[str, Any]]:
+def decode_raw(data: bytes) -> dict[str, Any] | None:
     """
     从字节串解码出原始字典
 
@@ -141,15 +132,15 @@ def decode_raw(data: bytes) -> Optional[Dict[str, Any]]:
     if len(data) < 4:
         return None
 
-    length = struct.unpack('>I', data[:4])[0]
+    length = struct.unpack(">I", data[:4])[0]
 
     if len(data) < 4 + length:
         return None
 
-    json_bytes = data[4:4 + length]
+    json_bytes = data[4 : 4 + length]
 
     try:
-        json_str = json_bytes.decode('utf-8')
+        json_str = json_bytes.decode("utf-8")
         return json.loads(json_str)
     except (UnicodeDecodeError, json.JSONDecodeError):
         return None

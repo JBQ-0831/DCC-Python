@@ -11,7 +11,9 @@ import datetime
 import json
 import os
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any
+
+from dcc_bridge.adapters import DCCAdapter
 
 
 def get_user_data_dir() -> str:
@@ -37,8 +39,8 @@ def _ensure_instances_dir() -> None:
     os.makedirs(get_instances_dir(), exist_ok=True)
 
 
-def _instance_filename(dcc_type: str, pid: int) -> str:
-    return os.path.join(get_instances_dir(), f"{dcc_type}-{pid}.json")
+def _instance_filename(dcc_name: str, pid: int) -> str:
+    return os.path.join(get_instances_dir(), f"{dcc_name}-{pid}.json")
 
 
 def _is_pid_alive(pid: int) -> bool:
@@ -77,18 +79,16 @@ def _is_pid_alive(pid: int) -> bool:
 
 
 def register_instance(
-    dcc_type: str,
+    adapter: DCCAdapter,
     port: int,
-    dcc_version: str = "",
-    pid: Optional[int] = None,
+    pid: int | None = None,
     host: str = "127.0.0.1",
-    python_path: str = "",
 ) -> str:
     """
     注册一个 DCC 服务实例。
 
     Args:
-        dcc_type: DCC 类型，如 'maya'、'3dsmax'
+        dcc_name: DCC 类型，如 'maya'、'3dsmax'
         port: TCP 服务端口
         dcc_version: DCC 版本，如 '2024'
         pid: 进程 ID，默认使用当前进程 ID
@@ -102,16 +102,17 @@ def register_instance(
         pid = os.getpid()
 
     _ensure_instances_dir()
-    filepath = _instance_filename(dcc_type, pid)
+    filepath = _instance_filename(adapter.name, pid)
 
-    info: Dict[str, Any] = {
+    info: dict[str, Any] = {
         "pid": pid,
-        "dcc_type": dcc_type,
-        "dcc_version": dcc_version,
+        "dcc_name": adapter.name,
+        "dcc_version": adapter.get_version(),
         "host": host,
         "port": port,
         "started_at": datetime.datetime.now().isoformat(),
-        "python_path": python_path or os.path.abspath(os.path.dirname(os.path.dirname(__file__))),
+        "python_path": adapter.get_python_path()
+        or os.path.abspath(os.path.dirname(os.path.dirname(__file__))),
     }
 
     with open(filepath, "w", encoding="utf-8") as f:
@@ -120,12 +121,12 @@ def register_instance(
     return filepath
 
 
-def unregister_instance(dcc_type: str, pid: Optional[int] = None) -> bool:
+def unregister_instance(dcc_name: str, pid: int | None = None) -> bool:
     """
     注销一个 DCC 服务实例。
 
     Args:
-        dcc_type: DCC 类型
+        dcc_name: DCC 类型
         pid: 进程 ID，默认使用当前进程 ID
 
     Returns:
@@ -134,7 +135,7 @@ def unregister_instance(dcc_type: str, pid: Optional[int] = None) -> bool:
     if pid is None:
         pid = os.getpid()
 
-    filepath = _instance_filename(dcc_type, pid)
+    filepath = _instance_filename(dcc_name, pid)
     if os.path.exists(filepath):
         try:
             os.remove(filepath)
@@ -149,20 +150,21 @@ def unregister_all_instances() -> int:
     pid = os.getpid()
     count = 0
     for info in list_instances():
-        if info.get("pid") == pid:
-            if unregister_instance(info.get("dcc_type", "unknown"), pid):
-                count += 1
+        if info.get("pid") == pid and unregister_instance(
+            info.get("dcc_name", "Unknown"), pid
+        ):
+            count += 1
     return count
 
 
-def list_instances() -> List[Dict[str, Any]]:
+def list_instances() -> list[dict[str, Any]]:
     """读取所有发现文件，返回 DCC 实例列表。
 
     会自动清理已退出的 DCC 进程对应的发现文件：
     DCC 软件关闭时 atexit 钩子不可靠（崩溃/强制结束均不触发），
     因此在读取时惰性检查 PID 是否存活，已退出的实例文件会被删除。
     """
-    instances: List[Dict[str, Any]] = []
+    instances: list[dict[str, Any]] = []
     instances_dir = get_instances_dir()
 
     if not os.path.isdir(instances_dir):
@@ -198,19 +200,21 @@ def list_instances() -> List[Dict[str, Any]]:
     return instances
 
 
-def get_instance(dcc_type: Optional[str] = None, port: Optional[int] = None) -> Optional[Dict[str, Any]]:
+def get_instance(
+    dcc_name: str | None = None, port: int | None = None
+) -> dict[str, Any] | None:
     """
     获取指定条件的实例。
 
     Args:
-        dcc_type: 按 DCC 类型筛选
+        dcc_name: 按 DCC 类型筛选
         port: 按端口筛选
 
     Returns:
         匹配的第一个实例，如果没有返回 None
     """
     for info in list_instances():
-        if dcc_type and info.get("dcc_type") != dcc_type:
+        if dcc_name and info.get("dcc_name") != dcc_name:
             continue
         if port is not None and info.get("port") != port:
             continue
@@ -218,8 +222,8 @@ def get_instance(dcc_type: Optional[str] = None, port: Optional[int] = None) -> 
     return None
 
 
-def find_instances(dcc_type: Optional[str] = None) -> List[Dict[str, Any]]:
+def find_instances(dcc_name: str | None = None) -> list[dict[str, Any]]:
     """按 DCC 类型筛选实例"""
-    if dcc_type is None:
+    if dcc_name is None:
         return list_instances()
-    return [info for info in list_instances() if info.get("dcc_type") == dcc_type]
+    return [info for info in list_instances() if info.get("dcc_name") == dcc_name]

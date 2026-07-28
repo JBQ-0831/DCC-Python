@@ -44,7 +44,7 @@ def _discover_setup_classes() -> List[Type[DCCSetup]]:
                 isinstance(obj, type)
                 and issubclass(obj, DCCSetup)
                 and obj is not DCCSetup
-                and getattr(obj, "dcc_type", "")
+                and getattr(obj, "dcc_name", "")
             ):
                 setup_classes.append(obj)
 
@@ -63,7 +63,7 @@ def cleanup(ctx, yes: bool) -> None:
 
     # 先发现所有 setup 子类，用于确认提示
     setup_classes = _discover_setup_classes()
-    dcc_names = [cls.dcc_type for cls in setup_classes]
+    dcc_names = [cls.dcc_name for cls in setup_classes]
 
     if not yes:
         click.echo("即将执行以下清理操作：")
@@ -91,23 +91,23 @@ def cleanup(ctx, yes: bool) -> None:
     # 2. 对所有发现的 DCC 执行 unsetup
     any_failed = False
     for setup_cls in setup_classes:
-        dcc_type = setup_cls.dcc_type
+        dcc_name = setup_cls.dcc_name
         try:
             setup_instance = setup_cls()
         except Exception as e:
-            click.echo(f"Failed to instantiate setup for {dcc_type}: {e}", err=True)
+            click.echo(f"Failed to instantiate setup for {dcc_name}: {e}", err=True)
             any_failed = True
             continue
 
         try:
             success = setup_instance.unsetup()
             if success:
-                click.echo(f"Unsetup succeeded for {dcc_type}")
+                click.echo(f"Unsetup succeeded for {dcc_name}")
             else:
-                click.echo(f"Unsetup returned failure for {dcc_type} (may not be installed)", err=True)
+                click.echo(f"Unsetup returned failure for {dcc_name} (may not be installed)", err=True)
                 any_failed = True
         except Exception as e:
-            click.echo(f"Unsetup error for {dcc_type}: {e}", err=True)
+            click.echo(f"Unsetup error for {dcc_name}: {e}", err=True)
             any_failed = True
 
     if any_failed:

@@ -6,25 +6,23 @@
 
 from __future__ import annotations
 
+import io
 import socket
 import struct
-import threading
 import sys
-import io
-import json
+import threading
 import traceback
-from typing import Any, Dict, Optional
 
 try:
+    from PySide2.QtCore import QObject, QThread, Signal
     from PySide2.QtGui import QIcon
     from PySide2.QtWidgets import QToolButton
-    from PySide2.QtCore import QThread, Signal, QObject
 except ImportError:
+    from PySide6.QtCore import QObject, QThread, Signal
     from PySide6.QtGui import QIcon
     from PySide6.QtWidgets import QToolButton
-    from PySide6.QtCore import QThread, Signal, QObject
 
-from .protocol import Request, Response, encode_message, decode_message
+from .protocol import Request, Response, decode_message, encode_message
 
 
 class RequestHandler(QObject):
@@ -96,7 +94,7 @@ class RequestHandler(QObject):
                     sys.stdout = old_stdout
                     sys.stderr = old_stderr
 
-                from .execute import main, execute_code
+                from .execute import execute_code, main
                 if source is not None:
                     # CLI / 外部工具直接发送代码字符串
                     execute_code(source, exec_origin or "<dcc>", is_debugging)
@@ -119,7 +117,7 @@ class RequestHandler(QObject):
                     self.logger.info(f"[DEBUG] Handling start_debugpy: port={port}, python_path={python_path}")
                     try:
                         from .debug import start_debugpy_server
-                        self.logger.info(f"[DEBUG] import start_debugpy_server succeeded")
+                        self.logger.info("[DEBUG] import start_debugpy_server succeeded")
                     except Exception as import_err:
                         self.logger.error(f"[ERROR] Failed to import start_debugpy_server: {import_err}")
                         self.logger.error(traceback.format_exc())
@@ -167,7 +165,7 @@ class RequestHandler(QObject):
                 return Response.success(
                     id=request.id,
                     output=["pong"],
-                    dcc_type=self.adapter.name,
+                    dcc_name=self.adapter.name,
                     python_path=self.adapter.get_python_path(),
                 )
 
@@ -200,13 +198,14 @@ class SocketServerThread(QThread):
     log_signal = Signal(str)
     """Signal: 日志消息"""
 
-    def __init__(self, port: int = 7002, host: str = "127.0.0.1", adapter=None, dcc_type: str = "unknown"):
+    def __init__(self, adapter,port: int = 7002, host: str = "127.0.0.1" ):
         super().__init__()
+        self.adapter = adapter
+        self.logger = adapter.get_logger()
+
         self.port = port
         self.host = host
-        self.adapter = adapter
-        self.dcc_type = dcc_type
-        self.logger = adapter.get_logger() if adapter else None
+
         self.server_socket = None
         self.running = True
 
@@ -331,11 +330,10 @@ class SocketServiceToggleTool:
     提供启动/停止服务端的功能，可用于创建工具栏按钮。
     """
 
-    def __init__(self, adapter, port: int = 7002, host: str = "127.0.0.1", dcc_type: str = "unknown"):
+    def __init__(self, adapter, port: int = 7002, host: str = "127.0.0.1"):
         self.adapter = adapter
         self.port = port
         self.host = host
-        self.dcc_type = dcc_type
         self.logger = adapter.get_logger()
         self.server_thread = None
         self.toolbutton = None
@@ -371,10 +369,9 @@ class SocketServiceToggleTool:
     def start(self):
         if self.server_thread is None:
             self.server_thread = SocketServerThread(
+                adapter=self.adapter,
                 port=self.port,
                 host=self.host,
-                adapter=self.adapter,
-                dcc_type=self.dcc_type,
             )
             self.server_thread.log_signal.connect(lambda msg: self.logger.info(msg))
             self.server_thread.start()
@@ -382,7 +379,7 @@ class SocketServiceToggleTool:
             if self.toolbutton:
                 self.toolbutton.setChecked(True)
         else:
-            self.logger.warn("Server is already running")
+            self.logger.warning("Server is already running")
 
     def stop(self):
         if self.server_thread is not None:
@@ -395,7 +392,7 @@ class SocketServiceToggleTool:
             if self.toolbutton:
                 self.toolbutton.setChecked(False)
         else:
-            self.logger.warn("Server is not running")
+            self.logger.warning("Server is not running")
 
     def _on_toggled(self):
         if self.toolbutton.isChecked():

@@ -20,6 +20,7 @@ class SubstancePainterLogger(Logger):
     def info(cls, message: str):
         try:
             import substance_painter as sp
+
             sp.logging.log(sp.logging.INFO, cls.channel, message)
         except:
             super().info(message)
@@ -28,6 +29,7 @@ class SubstancePainterLogger(Logger):
     def warn(cls, message: str):
         try:
             import substance_painter as sp
+
             sp.logging.log(sp.logging.WARNING, cls.channel, message)
         except:
             super().warn(message)
@@ -36,6 +38,7 @@ class SubstancePainterLogger(Logger):
     def error(cls, message: str):
         try:
             import substance_painter as sp
+
             sp.logging.log(sp.logging.ERROR, cls.channel, message)
         except:
             super().error(message)
@@ -69,6 +72,7 @@ class SubstancePainterAdapter(DCCAdapter):
     def on_connected(self) -> None:
         try:
             import substance_painter.ui as sp_ui
+
             parent_window = sp_ui.get_main_window()
         except:
             logger = self.get_logger()
@@ -80,3 +84,12 @@ class SubstancePainterAdapter(DCCAdapter):
         super().add_sys_path(path)
         logger = self.get_logger()
         logger.info(f"Added to {self.name} sys.path: {path}")
+
+    def get_version(self) -> str:
+        try:
+            import substance_painter.application as sp_app
+
+            version = sp_app.version()
+            return version
+        except:
+            return super().get_version()

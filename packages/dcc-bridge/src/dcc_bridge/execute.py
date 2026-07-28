@@ -1,15 +1,17 @@
 from __future__ import annotations
 
-import traceback
 import ast
-import sys
 import os
+import sys
+import traceback
 
 
 def get_exec_globals() -> dict:
     if "__VsCodeVariables__" not in globals():
         globals()["__VsCodeVariables__"] = {
-            "__builtins__": __builtins__, "__IsVsCodeExec__": True}
+            "__builtins__": __builtins__,
+            "__IsVsCodeExec__": True,
+        }
     return globals()["__VsCodeVariables__"]
 
 
@@ -20,8 +22,9 @@ def find_package(filepath: str) -> str:
     for path in sys.path:
         normalized_path = os.path.normpath(path).lower()
         if normalized_filepath.startswith(normalized_path):
-            package = os.path.relpath(os.path.dirname(
-                filepath), path).replace(os.sep, ".")
+            package = os.path.relpath(os.path.dirname(filepath), path).replace(
+                os.sep, "."
+            )
             if package != ".":
                 valid_packages.append(package)
 
@@ -47,29 +50,26 @@ def add_print_for_last_expr(parsed_code: ast.Module) -> ast.Module:
                 line_info["end_col_offset"] = last_expr.end_col_offset
 
             temp_var_assign = ast.Assign(
-                targets=[
-                    ast.Name(id=temp_var_name, ctx=ast.Store(), **line_info)],
+                targets=[ast.Name(id=temp_var_name, ctx=ast.Store(), **line_info)],
                 value=last_expr.value,
-                **line_info
+                **line_info,
             )
 
             print_stmt = ast.IfExp(
                 test=ast.Compare(
-                    left=ast.Name(id=temp_var_name,
-                                  ctx=ast.Load(), **line_info),
+                    left=ast.Name(id=temp_var_name, ctx=ast.Load(), **line_info),
                     ops=[ast.IsNot()],
                     comparators=[ast.Constant(value=None, **line_info)],
-                    **line_info
+                    **line_info,
                 ),
                 body=ast.Call(
-                    func=ast.Name(id='print', ctx=ast.Load(), **line_info),
-                    args=[ast.Name(id=temp_var_name,
-                                   ctx=ast.Load(), **line_info)],
+                    func=ast.Name(id="print", ctx=ast.Load(), **line_info),
+                    args=[ast.Name(id=temp_var_name, ctx=ast.Load(), **line_info)],
                     keywords=[],
-                    **line_info
+                    **line_info,
                 ),
                 orelse=ast.Constant(value=None, **line_info),
-                **line_info
+                **line_info,
             )
 
             parsed_code.body[-1] = temp_var_assign
@@ -78,7 +78,12 @@ def add_print_for_last_expr(parsed_code: ast.Module) -> ast.Module:
     return parsed_code
 
 
-def format_exception(exception_in: BaseException, filename: str, code: str, num_ignore_tracebacks: int = 0) -> str:
+def format_exception(
+    exception_in: BaseException,
+    filename: str,
+    code: str,
+    num_ignore_tracebacks: int = 0,
+) -> str:
     seen_exceptions = set()
     messages = []
     lines = code.splitlines()
@@ -95,8 +100,10 @@ def format_exception(exception_in: BaseException, filename: str, code: str, num_
                 num_ignore_tracebacks -= 1
                 continue
 
-            if frame_summary.filename == filename and \
-                    (frame_summary.lineno is not None and 0 < frame_summary.lineno <= len(lines)):
+            if frame_summary.filename == filename and (
+                frame_summary.lineno is not None
+                and 0 < frame_summary.lineno <= len(lines)
+            ):
                 line = lines[frame_summary.lineno - 1]
             else:
                 line = frame_summary.line
@@ -118,14 +125,13 @@ def format_exception(exception_in: BaseException, filename: str, code: str, num_
                     lookup_line=False,
                     locals=frame_summary.locals,
                     line=line,
-                    **col_info
+                    **col_info,
                 )
             )
 
         if isinstance(exception, SyntaxError):
             if exception.filename == filename:
-                exception.filename = "%s:%s" % (
-                    exception.filename, exception.lineno)
+                exception.filename = "%s:%s" % (exception.filename, exception.lineno)
                 if exception.lineno is not None and 0 < exception.lineno <= len(lines):
                     line = lines[exception.lineno - 1]
                     exception.text = line
@@ -138,11 +144,15 @@ def format_exception(exception_in: BaseException, filename: str, code: str, num_
 
         exception = exception.__context__
 
-    return "\nDuring handling of the above exception, another exception occurred:\n\n".join(reversed(messages))
+    return "\nDuring handling of the above exception, another exception occurred:\n\n".join(
+        reversed(messages)
+    )
 
 
 def handle_exception(exception, filename, code, use_colors, num_ignore_tracebacks=0):
-    traceback_message = format_exception(exception, filename, code, num_ignore_tracebacks)
+    traceback_message = format_exception(
+        exception, filename, code, num_ignore_tracebacks
+    )
 
     if use_colors:
         traceback_message = "\033[0m\n\033[91m".join(traceback_message.splitlines())
@@ -151,28 +161,34 @@ def handle_exception(exception, filename, code, use_colors, num_ignore_traceback
     print(traceback_message)
 
 
-def execute_code(code: str, filename: str, debugging: bool, exec_globals: dict = None):
+def execute_code(code: str, filename: str, debugging: bool, exec_globals: dict | None = None):
     if exec_globals is None:
         exec_globals = get_exec_globals()
 
     try:
         parsed_code = ast.parse(code, filename)
     except (SyntaxError, ValueError) as e:
-        handle_exception(e, filename, code, use_colors=debugging, num_ignore_tracebacks=2)
+        handle_exception(
+            e, filename, code, use_colors=debugging, num_ignore_tracebacks=2
+        )
         return
 
     parsed_code = add_print_for_last_expr(parsed_code)
 
     try:
-        exec(compile(parsed_code, filename, 'exec'), exec_globals)
+        exec(compile(parsed_code, filename, "exec"), exec_globals)
     except Exception as e:
-        handle_exception(e, filename, code, use_colors=debugging, num_ignore_tracebacks=1)
+        handle_exception(
+            e, filename, code, use_colors=debugging, num_ignore_tracebacks=1
+        )
 
 
-def main(exec_file: str,
-         exec_origin: str,
-         name_var: str | None = None,
-         is_debugging: bool = False):
+def main(
+    exec_file: str,
+    exec_origin: str,
+    name_var: str | None = None,
+    is_debugging: bool = False,
+):
     exec_globals = get_exec_globals()
 
     exec_globals["__file__"] = exec_origin
@@ -183,7 +199,7 @@ def main(exec_file: str,
 
     exec_globals["__package__"] = find_package(exec_origin)
 
-    with open(exec_file, 'r', encoding="utf-8") as vscode_in_file:
+    with open(exec_file, "r", encoding="utf-8") as vscode_in_file:
         execute_code(vscode_in_file.read(), exec_origin, is_debugging, exec_globals)
 
     if is_debugging:

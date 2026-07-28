@@ -7,7 +7,7 @@ import { runDCCBridgeCommand } from '../utils';
 
 interface DCCInstance {
     pid: number;
-    dcc_type: string;
+    dcc_name: string;
     dcc_version: string;
     host: string;
     port: number;
@@ -94,7 +94,7 @@ export class DCCPythonDashboard implements vscode.TreeDataProvider<DashboardItem
         }
 
         for (const instance of this._instances) {
-            const label = `${instance.dcc_type}${instance.dcc_version ? ` ${instance.dcc_version}` : ''} @ ${instance.host}:${instance.port}`;
+            const label = `${instance.dcc_name}${instance.dcc_version ? ` ${instance.dcc_version}` : ''} @ ${instance.host}:${instance.port}`;
             const item = new DashboardItem(
                 label,
                 vscode.TreeItemCollapsibleState.None,
@@ -168,14 +168,14 @@ export function registerDashboardCommands(context: vscode.ExtensionContext) {
                     vscode.window.showErrorMessage(`实例数据无效（端口缺失或无效: ${rawPort}），请刷新 Dashboard 后重试。`);
                     return;
                 }
-                Logger.info(`[Dashboard] selecting instance: ${instance.host}:${port} (${instance.dcc_type})`);
+                Logger.info(`[Dashboard] selecting instance: ${instance.host}:${port} (${instance.dcc_name})`);
                 const dccManager = DCCManager.getInstance();
-                dccManager.setDriverByInstance(instance.host, port, instance.dcc_type);
+                dccManager.setDriverByInstance(instance.host, port, instance.dcc_name);
                 const connected = await dccManager.connect();
                 if (connected) {
-                    vscode.window.showInformationMessage(`已连接到 DCC 实例: ${instance.dcc_type} @ ${instance.host}:${instance.port}`);
+                    vscode.window.showInformationMessage(`已连接到 DCC 实例: ${instance.dcc_name} @ ${instance.host}:${instance.port}`);
                 } else {
-                    vscode.window.showErrorMessage(`无法连接到 DCC 实例: ${instance.dcc_type} @ ${instance.host}:${instance.port}`);
+                    vscode.window.showErrorMessage(`无法连接到 DCC 实例: ${instance.dcc_name} @ ${instance.host}:${instance.port}`);
                 }
             } catch (err) {
                 const message = `选择实例失败: ${err}`;
@@ -206,6 +206,12 @@ export function registerDashboardCommands(context: vscode.ExtensionContext) {
         }),
         vscode.commands.registerCommand('dcc-python-toolkit.dashboard.unsetupSD', async () => {
             await runSetupCommand('substance_designer', true);
+        }),
+        vscode.commands.registerCommand('dcc-python-toolkit.dashboard.setupHoudini', async () => {
+            await runSetupCommand('houdini');
+        }),
+        vscode.commands.registerCommand('dcc-python-toolkit.dashboard.unsetupHoudini', async () => {
+            await runSetupCommand('houdini', true);
         })
     );
 }

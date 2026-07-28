@@ -10,8 +10,8 @@ from __future__ import annotations
 import ctypes
 import os
 from ctypes import wintypes
-from typing import List, Optional
-from .base import DCCSetup
+
+from dcc_bridge.setup.base import DCCSetup
 
 # import sys,os
 # root = os.path.dirname(__file__)
@@ -57,9 +57,9 @@ class DesignerSetup(DCCSetup):
     get_supported_languages 只返回 ["en"]。
     """
 
-    dcc_type = "substance_designer"
+    dcc_name = "substance_designer"
 
-    def discover_versions(self) -> List[str]:
+    def discover_versions(self) -> list[str]:
         """用 ctypes 读取 exe 的版本信息，取前两段作为版本号（如 10.1）。"""
         exe_path = self._read_registry_value(SD_REG_BASE, "")
         if not exe_path or not os.path.exists(exe_path):
@@ -77,8 +77,7 @@ class DesignerSetup(DCCSetup):
             info_ptr = ctypes.c_void_p()
             info_len = wintypes.UINT()
             if not ctypes.windll.version.VerQueryValueW(
-                buffer, "\\",
-                ctypes.byref(info_ptr), ctypes.byref(info_len)
+                buffer, "\\", ctypes.byref(info_ptr), ctypes.byref(info_len)
             ):
                 return []
 
@@ -89,32 +88,40 @@ class DesignerSetup(DCCSetup):
         except Exception:
             return []
 
-    def get_install_path(self, version: Optional[str] = None) -> Optional[str]:
+    def get_install_path(self, version: str | None = None) -> str | None:
         """从注册表获取 SD 的安装目录（Path 值）"""
         return self._read_registry_value(SD_REG_BASE, "Path")
 
-    def get_script_dir(self, version: Optional[str] = None, language: str = "en") -> Optional[str]:
+    def get_script_dir(
+        self, version: str | None = None, language: str = "en"
+    ) -> str | None:
         """拼接 SD 的 sduserplugins 目录
 
         SD 的目录全版本都固定在：~/Documents/Adobe/Adobe Substance 3D Designer/python/sduserplugins
         """
         home = os.path.expanduser("~")
         return os.path.join(
-            home, "Documents", "Adobe", "Adobe Substance 3D Designer", "python", "sduserplugins",
+            home,
+            "Documents",
+            "Adobe",
+            "Adobe Substance 3D Designer",
+            "python",
+            "sduserplugins",
         )
 
-    def get_python_path(self, version: Optional[str] = None) -> Optional[str]:
+    def get_python_path(self, version: str | None = None) -> str | None:
         """返回 Substance Designer 的 Python 解释器路径"""
         install_path = self.get_install_path(version)
         if install_path:
             return os.path.join(install_path, "plugins", "pythonsdk", "python.exe")
         return None
 
-    def get_supported_languages(self) -> List[str]:
+    def get_supported_languages(self) -> list[str]:
         """SD 的脚本目录不随语言变化，只注入一份即可"""
         return ["en"]
 
-if __name__ == "__main__" :
+
+if __name__ == "__main__":
     ds = DesignerSetup()
     v = ds.discover_versions()
     print(v)

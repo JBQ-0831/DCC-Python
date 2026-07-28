@@ -4,7 +4,8 @@ DCC 适配器包
 包含各 DCC 软件的适配器实现。当前实现：
 - maya: MayaAdapter
 - max: MaxAdapter
-- painter: SubstancePainterAdapter（接口保留）
+- painter: SubstancePainterAdapter
+- houdini: HoudiniAdapter
 """
 
 from __future__ import annotations
@@ -18,10 +19,16 @@ try:
 except ImportError:
     SubstancePainterAdapter = None  # type: ignore
 
+try:
+    from .houdini import HoudiniAdapter
+except ImportError:
+    HoudiniAdapter = None  # type: ignore
+
 __all__ = [
     "DCCAdapter",
     "Logger",
     "MayaAdapter",
     "MaxAdapter",
     "SubstancePainterAdapter",
+    "HoudiniAdapter",
 ]

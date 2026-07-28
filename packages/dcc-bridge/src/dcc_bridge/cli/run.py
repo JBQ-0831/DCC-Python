@@ -9,7 +9,7 @@ import sys
 import click
 
 from ..client import DCCClient, DCCClientError, resolve_client
-from ..dcc_types import normalize_dcc_type
+from ..dcc_names import normalize_dcc_name
 from .utils import get_exit_code, parse_response, print_client_error, print_result
 
 
@@ -26,7 +26,7 @@ def _run_common_options(func):
     func = click.option("--plain", is_flag=True, default=False, help="Output in plain text.\n纯文本输出。")(func)
     func = click.option("--origin", type=str, default=None, help="Execution origin identifier.\n执行来源标识。")(func)
     func = click.option("-r", "--reload", "reload", is_flag=True, default=False, help="Reload modules before execution.\n执行前重载模块。")(func)
-    func = click.option("--dcc-type", type=str, default=None, help="DCC type (maya/3dsmax/substance_painter/substance_designer).\nDCC 类型 (maya/3dsmax/substance_painter/substance_designer)。")(func)
+    func = click.option("--dcc-name", type=str, default=None, help="DCC type (maya/3dsmax/substance_painter/substance_designer/houdini).\nDCC 类型 (maya/3dsmax/substance_painter/substance_designer/houdini)。")(func)
     func = click.option("--version", "dcc_version", type=str, default=None, help="Filter by DCC version (e.g. 2022/2024).\nDCC 版本过滤（如 2022/2024）。")(func)
     func = click.option("--port", type=int, default=None, help="Target DCC port.\n目标 DCC 端口。")(func)
     return func
@@ -59,12 +59,12 @@ def run_group() -> None:
 @click.argument("target")
 @_run_common_options
 @click.pass_context
-def run_file(ctx, target, port, dcc_type, reload, origin, plain, as_json, timeout, dcc_version) -> None:
+def run_file(ctx, target, port, dcc_name, reload, origin, plain, as_json, timeout, dcc_version) -> None:
     """Execute a local Python file.
 
     执行本地 Python 文件。
     """
-    dcc_type = normalize_dcc_type(dcc_type)
+    dcc_name = normalize_dcc_name(dcc_name)
     file_path = os.path.abspath(target)
 
     if not os.path.exists(file_path):
@@ -78,7 +78,7 @@ def run_file(ctx, target, port, dcc_type, reload, origin, plain, as_json, timeou
         ctx.exit(3)
 
     try:
-        client = resolve_client(dcc_type=dcc_type, port=port, version=dcc_version, timeout=timeout)
+        client = resolve_client(dcc_name=dcc_name, port=port, version=dcc_version, timeout=timeout)
     except DCCClientError as e:
         ctx.exit(print_client_error(e, plain))
 
@@ -100,14 +100,14 @@ def run_file(ctx, target, port, dcc_type, reload, origin, plain, as_json, timeou
 @click.argument("target")
 @_run_common_options
 @click.pass_context
-def run_code(ctx, target, port, dcc_type, reload, origin, plain, as_json, timeout, dcc_version) -> None:
+def run_code(ctx, target, port, dcc_name, reload, origin, plain, as_json, timeout, dcc_version) -> None:
     """Execute a Python code string.
 
     执行代码字符串。
     """
-    dcc_type = normalize_dcc_type(dcc_type)
+    dcc_name = normalize_dcc_name(dcc_name)
     try:
-        client = resolve_client(dcc_type=dcc_type, port=port, version=dcc_version, timeout=timeout)
+        client = resolve_client(dcc_name=dcc_name, port=port, version=dcc_version, timeout=timeout)
     except DCCClientError as e:
         ctx.exit(print_client_error(e, plain))
 
@@ -117,15 +117,15 @@ def run_code(ctx, target, port, dcc_type, reload, origin, plain, as_json, timeou
 @run_group.command(name="stdin")
 @_run_common_options
 @click.pass_context
-def run_stdin(ctx, port, dcc_type, reload, origin, plain, as_json, timeout, dcc_version) -> None:
+def run_stdin(ctx, port, dcc_name, reload, origin, plain, as_json, timeout, dcc_version) -> None:
     """Read code from stdin and execute.
 
     从标准输入读取代码并执行。
     """
-    dcc_type = normalize_dcc_type(dcc_type)
+    dcc_name = normalize_dcc_name(dcc_name)
     source = sys.stdin.read()
     try:
-        client = resolve_client(dcc_type=dcc_type, port=port, version=dcc_version, timeout=timeout)
+        client = resolve_client(dcc_name=dcc_name, port=port, version=dcc_version, timeout=timeout)
     except DCCClientError as e:
         ctx.exit(print_client_error(e, plain))
 

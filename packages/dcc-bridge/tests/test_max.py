@@ -172,7 +172,7 @@ class TestGetStartupScriptName:
 # ==================== get_startup_script_content ====================
 
 class TestGetStartupScriptContent:
-    def test_contains_dcc_type(self, setup_instance):
+    def test_contains_dcc_name(self, setup_instance):
         """内容应包含 3dsmax 标识"""
         assert "3dsmax" in setup_instance.get_startup_script_content()
 
@@ -197,10 +197,10 @@ class TestDetectInstallations:
         assert "2019" in versions
         assert "2024" in versions
 
-    def test_installation_has_correct_dcc_type(self, setup_instance, populated_registry):
-        """dcc_type 应为 3dsmax"""
+    def test_installation_has_correct_dcc_name(self, setup_instance, populated_registry):
+        """dcc_name 应为 3dsmax"""
         for inst in setup_instance.detect_installations():
-            assert inst.dcc_type == "3dsmax"
+            assert inst.dcc_name == "3dsmax"
 
     def test_installation_root_path_from_registry(self, setup_instance, populated_registry):
         """root_path 应为注册表中的安装路径"""

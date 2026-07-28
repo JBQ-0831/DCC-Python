@@ -9,10 +9,9 @@ from __future__ import annotations
 
 import os
 import re
-from typing import List, Optional
+from typing import Optional
 
-from .base import DCCSetup
-
+from dcc_bridge.setup.base import DCCSetup
 
 # Max 注册表基路径
 MAX_REG_BASE = r"SOFTWARE\Autodesk\3dsMax"
@@ -38,34 +37,40 @@ class MaxSetup(DCCSetup):
     Max 启动时自动加载 startup/ 目录下的脚本，无需额外修改配置文件。
     """
 
-    dcc_type = "3dsmax"
+    dcc_name = "3dsmax"
     # 仅支持 2021+ 的 3ds Max
     min_supported_version = "2021"
 
-    def discover_versions(self) -> List[str]:
+    def discover_versions(self) -> list[str]:
         """从注册表扫描已安装的 3ds Max 版本号（年份）"""
         subkeys = self._enum_registry_subkeys(MAX_REG_BASE)
-        versions: List[str] = []
+        versions: list[str] = []
         for sk in subkeys:
-            install_dir = self._read_registry_value(f"{MAX_REG_BASE}\\{sk}", "Installdir")
+            install_dir = self._read_registry_value(
+                f"{MAX_REG_BASE}\\{sk}", "Installdir"
+            )
             if install_dir:
                 match = _YEAR_PATTERN.search(install_dir)
                 if match:
                     versions.append(match.group(1))
         return sorted(set(versions))
 
-    def get_install_path(self, version: str) -> Optional[str]:
+    def get_install_path(self, version: str) -> str | None:
         """从注册表获取指定版本的安装路径"""
         subkeys = self._enum_registry_subkeys(MAX_REG_BASE)
         for sk in subkeys:
-            install_dir = self._read_registry_value(f"{MAX_REG_BASE}\\{sk}", "Installdir")
+            install_dir = self._read_registry_value(
+                f"{MAX_REG_BASE}\\{sk}", "Installdir"
+            )
             if install_dir:
                 match = _YEAR_PATTERN.search(install_dir)
                 if match and match.group(1) == version:
                     return install_dir
         return None
 
-    def get_script_dir(self, version: Optional[str] = None, language: str = "en") -> Optional[str]:
+    def get_script_dir(
+        self, version: str | None = None, language: str = "en"
+    ) -> Optional[str]:  # noqa: UP045
         """拼接指定版本、指定语言 Max 的 scripts/startup 目录
 
         language: 'en' -> ENU，'zh_CN' -> CHS
@@ -85,11 +90,18 @@ class MaxSetup(DCCSetup):
 
         home = os.path.expanduser("~")
         return os.path.join(
-            home, "AppData", "Local", "Autodesk", "3dsMax",
-            f"{version} - 64bit", lang_dir, "scripts", "startup",
+            home,
+            "AppData",
+            "Local",
+            "Autodesk",
+            "3dsMax",
+            f"{version} - 64bit",
+            lang_dir,
+            "scripts",
+            "startup",
         )
 
-    def get_python_path(self, version: str) -> Optional[str]:
+    def get_python_path(self, version: str) -> str | None:
         """返回 3ds Max 指定版本的 Python 解释器路径（2021+ 为 Python/python.exe）"""
         install_path = self.get_install_path(version)
         if install_path:

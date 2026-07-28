@@ -49,16 +49,17 @@ vscode-maya-python/
 └── test/                    # 遗留的 DCC 测试脚本
 ```
 
-```
-┌─────────────────┐      TCP JSON-RPC（4 字节长度前缀）      ┌─────────────────┐
-│   VS Code 插件   │◄───────────────────────────────────────►│  DCC 内部服务    │
-│   (dcc-python-toolkit)   │                                       │ (dcc-bridge)    │
-└────────┬────────┘                                       └────────┬────────┘
-         │                                                         │
-         │   自动发现：读取 ~/.dcc-bridge/instances/{dcc}-{pid}.json   │
-         └─────────────────────────────────────────────────────────┘
+```mermaid
+graph LR
+    V["VS Code 插件<br>(dcc-python-toolkit)"]
+    D["DCC 内部服务<br>(dcc-bridge)"]
+
+    V <-->|"TCP JSON-RPC（4 字节长度前缀）"| D
+    V -.->|"自动发现：读取 ~/.dcc-bridge/instances/{dcc}-{pid}.json"| D
 ```
 
+
+```
 核心设计：
 
 - `dcc-bridge` 不依赖 VS Code，DCC 端服务与 CLI 共用同一套协议与适配器。

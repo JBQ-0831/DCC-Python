@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import importlib
+import os
 import subprocess
 import sys
-import os
 
 # 模块级标志：debugpy.listen() 在 DCC 进程生命周期内只能调用一次，
 # 重复调用会导致端口占用错误。VS Code 断开重连时复用已有监听。
@@ -29,10 +28,7 @@ def install_debugpy(python_path: str, pip_index_url: str = ""):
     print(f"[DEBUG] install_debugpy: running: {' '.join(cmd)}")
 
     try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True, check=True, text=True
-        )
+        result = subprocess.run(cmd, capture_output=True, check=True, text=True)
         print(f"[DEBUG] install_debugpy: returncode={result.returncode}")
         sys.stdout.write(result.stdout)
         if result.stderr:
@@ -82,7 +78,9 @@ def start_debugpy_server(port: int, python_path: str, adapter=None) -> bool:
     global _debugpy_listening
 
     if python_path is None:
-        print("[ERROR] start_debugpy_server: python_path is None, cannot start debugpy server")
+        print(
+            "[ERROR] start_debugpy_server: python_path is None, cannot start debugpy server"
+        )
         return False
 
     if not os.path.exists(python_path):
@@ -91,10 +89,13 @@ def start_debugpy_server(port: int, python_path: str, adapter=None) -> bool:
     else:
         print(f"[DEBUG] Python executable exists at: {python_path}")
 
-    print(f"[DEBUG] start_debugpy_server called with port={port}, python_path={python_path}")
+    print(
+        f"[DEBUG] start_debugpy_server called with port={port}, python_path={python_path}"
+    )
 
     try:
         import debugpy
+
         print(f"[DEBUG] debugpy imported successfully, version={debugpy.__version__}")
     except ImportError as e:
         print(f"[ERROR] Failed to import debugpy: {e}")
@@ -102,11 +103,11 @@ def start_debugpy_server(port: int, python_path: str, adapter=None) -> bool:
         raise
 
     try:
-        if adapter is not None and hasattr(adapter, 'configure_debugpy'):
+        if adapter is not None and hasattr(adapter, "configure_debugpy"):
             adapter.configure_debugpy(python_path)
         else:
             debugpy.configure(python=python_path)
-        print(f"[DEBUG] debugpy.configure() succeeded")
+        print("[DEBUG] debugpy.configure() succeeded")
     except Exception as e:
         print(f"[ERROR] debugpy.configure() failed: {e}")
         raise
@@ -114,22 +115,26 @@ def start_debugpy_server(port: int, python_path: str, adapter=None) -> bool:
     # debugpy.listen() 在进程中只能调用一次，重复调用会导致端口占用
     # VS Code 断开重连时复用已有监听，无需重新 listen
     if _debugpy_listening:
-        print(f"[DEBUG] debugpy already listening, reusing existing listener")
+        print("[DEBUG] debugpy already listening, reusing existing listener")
         return True
 
     try:
         debugpy.listen(port)
         _debugpy_listening = True
-        print(f"[DEBUG] debugpy.listen({port}) succeeded, debug server is now listening")
+        print(
+            f"[DEBUG] debugpy.listen({port}) succeeded, debug server is now listening"
+        )
     except RuntimeError as e:
         if "debugpy.listen() has already been called on this process" in str(e):
-            print(f"[DEBUG] debugpy.listen() already called on this process, skipping")
+            print("[DEBUG] debugpy.listen() already called on this process, skipping")
             _debugpy_listening = True
             return True
         print(f"[ERROR] debugpy.listen() RuntimeError: {e}")
         raise e
     except Exception as e:
-        print(f"[ERROR] debugpy.listen() failed with unexpected error: {type(e).__name__}: {e}")
+        print(
+            f"[ERROR] debugpy.listen() failed with unexpected error: {type(e).__name__}: {e}"
+        )
         raise
 
     return True

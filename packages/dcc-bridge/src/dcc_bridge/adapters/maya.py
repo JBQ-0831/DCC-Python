@@ -77,3 +77,12 @@ class MayaAdapter(DCCAdapter):
         super().add_sys_path(path)
         logger = self.get_logger()
         logger.info(f"Added to {self.name} sys.path: {path}")
+    def get_version(self) -> str:
+        try:
+            from maya import cmds
+
+            version = cmds.about(version=True)
+            print(version)
+            return version
+        except:
+            return super().get_version()

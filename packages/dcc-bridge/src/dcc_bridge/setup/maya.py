@@ -9,19 +9,18 @@ from __future__ import annotations
 
 import os
 import re
-from typing import List, Optional
 
-from .base import DCCSetup
-
+from dcc_bridge.setup.base import DCCSetup
 
 # Maya 注册表基路径
 MAYA_REG_BASE = r"SOFTWARE\Autodesk\Maya"
 
+# userSetup.py 中追加的 import 模块名（不含 .py 后缀）
+STARTUP_MODULE_NAME = "dcc_bridge_startup"
+
 # 版本号匹配：2022、2024 等
 _VERSION_PATTERN = re.compile(r"^20\d{2}$")
 
-# Maya 启动脚本模块名（写入 userSetup.py 的 import 语句使用）
-STARTUP_MODULE_NAME = "dcc_bridge_startup"
 
 # Maya 安装路径可能的值名称（不同版本可能不同）
 _INSTALL_PATH_KEYS = ("MAYA_INSTALL_LOCATION", "InstallLocation", "")
@@ -37,17 +36,17 @@ class MayaSetup(DCCSetup):
     额外操作：  在 scripts/userSetup.py 中追加 import 行
     """
 
-    dcc_type = "maya"
+    dcc_name = "maya"
     # 仅支持 2020+ 的 Maya
     min_supported_version = "2020"
 
-    def discover_versions(self) -> List[str]:
+    def discover_versions(self) -> list[str]:
         """从注册表扫描已安装的 Maya 版本号"""
         subkeys = self._enum_registry_subkeys(MAYA_REG_BASE)
         versions = [s for s in subkeys if _VERSION_PATTERN.match(s)]
         return sorted(versions)
 
-    def get_install_path(self, version: str) -> Optional[str]:
+    def get_install_path(self, version: str) -> str | None:
         """从注册表获取指定版本的安装路径"""
         reg_path = f"{MAYA_REG_BASE}\\{version}\\Setup\\InstallPath"
         # 尝试已知的值名称，包括默认值（空字符串）
@@ -57,7 +56,9 @@ class MayaSetup(DCCSetup):
                 return value
         return None
 
-    def get_script_dir(self, version: Optional[str] = None, language: str = "en") -> Optional[str]:
+    def get_script_dir(
+        self, version: str | None = None, language: str = "en"
+    ) -> str | None:
         """拼接指定版本、指定语言 Maya 的 scripts 目录
 
         英文：  ~/Documents/maya/<version>/scripts
@@ -78,7 +79,7 @@ class MayaSetup(DCCSetup):
         lang_parts = [language] if language != "en" else []
         return os.path.join(home, "Documents", "maya", version, *lang_parts, "scripts")
 
-    def get_python_path(self, version: str) -> Optional[str]:
+    def get_python_path(self, version: str) -> str | None:
         """返回 Maya 指定版本的 Python 解释器路径（mayapy.exe）"""
         install_path = self.get_install_path(version)
         if install_path:
@@ -104,9 +105,10 @@ class MayaSetup(DCCSetup):
 
 # ==================== 模块级辅助函数 ====================
 
+
 def _ensure_import_in_file(file_path: str, import_line: str, dcc_label: str) -> None:
     """确保指定文件中包含 import 行，不存在则追加"""
-    existing_lines: List[str] = []
+    existing_lines: list[str] = []
     if os.path.exists(file_path):
         with open(file_path, "r", encoding="utf-8") as f:
             existing_lines = f.readlines()

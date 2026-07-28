@@ -57,6 +57,7 @@ class SubstanceDesignerAdapter(DCCAdapter):
     def on_connected(self) -> None:
         try:
             import sd
+
             ctx = sd.getContext()
             app = ctx.getSDApplication()
             uimgr = app.getUIMgr()
@@ -82,6 +83,17 @@ class SubstanceDesignerAdapter(DCCAdapter):
         logger = self.get_logger()
         logger.info(f"Added to {self.name} sys.path: {path}")
 
+    def get_version(self) -> str:
+        try:
+            import sd
+
+            ctx = sd.getContext()
+            app = ctx.getSDApplication()
+            version = app.getVersion()
+            return version
+        except:
+            return super().get_version()
+
     def configure_debugpy(self, python_path: str) -> None:
         """
             SD 内置 Python 是打包冻结版（frozen modules），
@@ -94,6 +106,8 @@ class SubstanceDesignerAdapter(DCCAdapter):
         """
         # 放在所有import最前面
         import os
+
         os.environ["PYDEVD_DISABLE_FILE_VALIDATION"] = "1"
         import debugpy
+
         debugpy.configure(python=python_path)

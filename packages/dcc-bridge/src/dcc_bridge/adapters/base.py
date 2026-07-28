@@ -66,7 +66,9 @@ class DCCAdapter:
                 from PySide2.QtWidgets import QMessageBox
             except ImportError:
                 from PySide6.QtWidgets import QMessageBox
-            QMessageBox.information(parent_window, "DCC Python", "DCC Bridge Server connected")
+            QMessageBox.information(
+                parent_window, "DCC Python", "DCC Bridge Server connected"
+            )
 
         except:
             logger.warn("PySide2/PySide6 not found, cannot show connection message box")
@@ -80,6 +82,9 @@ class DCCAdapter:
         """
         if path not in sys.path:
             sys.path.append(path)
+
+    def get_version(self) -> str:
+        return "Unknown"
 
     def format_output(self, line: str) -> str:
         """
@@ -123,4 +128,5 @@ class DCCAdapter:
             python_path: 用于启动子进程的 Python 解释器路径
         """
         import debugpy
+
         debugpy.configure(python=python_path)
