@@ -60,6 +60,12 @@
       },
       {
         "category": "DCC Python ToolKit",
+        "command": "dcc-python-toolkit.openDCCSetup",
+        "title": "DCC Setup Manager",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "category": "DCC Python ToolKit",
         "command": "dcc-python-toolkit.dashboard.selectInstance",
         "title": "Select Instance",
         "icon": "$(check)"
@@ -152,6 +158,10 @@
           "when": "true"
         },
         {
+          "command": "dcc-python-toolkit.openDCCSetup",
+          "when": "true"
+        },
+        {
           "command": "dcc-python-toolkit.dashboard.setupMaya",
           "when": "false"
         },
@@ -206,34 +216,9 @@
       ],
       "view/title": [
         {
-          "command": "dcc-python-toolkit.dashboard.setupMaya",
+          "command": "dcc-python-toolkit.openDCCSetup",
           "when": "view == dccPythonDashboard",
           "group": "navigation@1"
-        },
-        {
-          "command": "dcc-python-toolkit.dashboard.setupMax",
-          "when": "view == dccPythonDashboard",
-          "group": "navigation@2"
-        },
-        {
-          "command": "dcc-python-toolkit.dashboard.setupSP",
-          "when": "view == dccPythonDashboard",
-          "group": "navigation@3"
-        },
-        {
-          "command": "dcc-python-toolkit.dashboard.setupSD",
-          "when": "view == dccPythonDashboard",
-          "group": "navigation@4"
-        },
-        {
-          "command": "dcc-python-toolkit.dashboard.setupHoudini",
-          "when": "view == dccPythonDashboard",
-          "group": "navigation@5"
-        },
-        {
-          "command": "dcc-python-toolkit.dashboard.setupBlender",
-          "when": "view == dccPythonDashboard",
-          "group": "navigation@6"
         }
       ],
       "view/item/context": [
@@ -332,6 +317,17 @@
             "type": "boolean",
             "default": true,
             "description": "Whether to debug only user-written code.\n\n是否只调试用户编写的代码。",
+            "scope": "resource"
+          }
+        }
+      },
+      {
+        "title": "Pip",
+        "properties": {
+          "dcc-python-toolkit.pip.indexUrl": {
+            "type": "string",
+            "default": "",
+            "description": "Custom pip index URL (mirror) for installing debugpy during DCC setup. Leave empty to use the default PyPI (https://pypi.org/simple). Examples: https://pypi.tuna.tsinghua.edu.cn/simple, https://mirrors.aliyun.com/pypi/simple\n\nDCC Setup 时 pip 安装 debugpy 所使用的镜像源地址。留空则使用 PyPI 官方源（https://pypi.org/simple）。示例：https://pypi.tuna.tsinghua.edu.cn/simple, https://mirrors.aliyun.com/pypi/simple",
             "scope": "resource"
           }
         }

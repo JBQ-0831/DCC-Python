@@ -7,6 +7,7 @@ import * as execute from './script/execute';
 import { reloadWorkspaceModules } from './script/reload';
 import { attach } from './script/attach';
 import { DCCPythonDashboard, registerDashboardCommands } from './module/panel/dashboard';
+import { registerDCCSetupPanel } from './module/panel/dcc-setup-panel';
 import { getExtensionConfig, uriExists, resolvePythonCommand, runPythonCommand, runDCCBridgeCommand } from './module/utils';
 
 
@@ -49,6 +50,9 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.window.registerTreeDataProvider('dccPythonDashboard', dashboard);
     context.subscriptions.push(dashboard);
     registerDashboardCommands(context);
+
+    // 注册 DCC Setup WebView 面板
+    registerDCCSetupPanel(context);
 
     // 自动刷新 Dashboard
     const refreshInterval = setInterval(() => {

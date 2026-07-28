@@ -225,6 +225,16 @@ export function registerDashboardCommands(context: vscode.ExtensionContext) {
 
 async function runSetupCommand(dccType: string, unsetup: boolean = false) {
     const args = unsetup ? ['unsetup', dccType] : ['setup', dccType];
+
+    // Setup 时读取用户配置的 pip 镜像源
+    if (!unsetup) {
+        const config = vscode.workspace.getConfiguration('dcc-python-toolkit');
+        const mirrorUrl: string = config.get('pip.indexUrl', '');
+        if (mirrorUrl.trim()) {
+            args.push('--pip-index-url', mirrorUrl.trim());
+        }
+    }
+
     const cmdText = `dcc ${args.join(' ')}`;
     // 显示 log 输出频道，让用户看到实时进度
     Logger.channel.show(true);
