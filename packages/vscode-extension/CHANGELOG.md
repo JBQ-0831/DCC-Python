@@ -1,5 +1,17 @@
 # Change Log
 
+## [1.3.1] - 2026-07-29
+
+### 修复
+- dcc-bridge README.md：`dcc setup` 和 `dcc unsetup` 示例注释遗漏 Houdini 和 Blender
+- vscode-extension README.md：配置表遗漏 `pip.indexUrl` 配置项说明
+
+## [1.3.0] - 2026-07-29
+
+### 变更
+- dcc-bridge README.md 补全 Houdini 和 Blender 的注入位置、版本发现机制文档
+- Houdini 适配器说明：使用 `hou.ui.addEventLoopCallback` + 队列轮询，不依赖 PySide，避免双 Qt 库 ABI 冲突崩溃
+
 ## [1.2.0] - 2026-07-21
 
 ### 新增

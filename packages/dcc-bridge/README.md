@@ -173,7 +173,7 @@ dcc setup [<dcc_name>] [--version <版本号>] [--pip-index-url <镜像源>]
 #### 示例
 
 ```bash
-# 注入所有已支持的 DCC（Maya + 3ds Max + SP + SD），自动发现版本并安装 debugpy
+# 注入所有已支持的 DCC（Maya + 3ds Max + SP + SD + Houdini + Blender），自动发现版本并安装 debugpy
 dcc setup
 
 # 使用国内镜像源加速所有 DCC 的 debugpy 安装
@@ -248,6 +248,10 @@ dcc unsetup maya --version 2024
 # 移除 Substance Painter / Substance Designer 自启动脚本
 dcc unsetup substance_painter
 dcc unsetup substance_designer
+
+# 移除 Houdini / Blender 自启动脚本
+dcc unsetup houdini
+dcc unsetup blender
 ```
 
 ---

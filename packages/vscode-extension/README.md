@@ -55,6 +55,7 @@ pip install dcc-bridge
 | `dcc-python-toolkit.execute.clearOutput` | 每次执行新内容时是否清空输出日志 | `true` |
 | `dcc-python-toolkit.debug.port` | debugpy 端口，首次 attach 后绑定，修改需重启 DCC | `7012` |
 | `dcc-python-toolkit.debug.justMyCode` | 是否只调试用户编写的代码 | `true` |
+| `dcc-python-toolkit.pip.indexUrl` | pip 镜像源地址，用于 DCC Setup 时加速 debugpy 安装 | `""` |
 
 ## 开发
 
