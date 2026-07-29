@@ -83,43 +83,83 @@ def _run_pip_elevated(cmd) -> tuple[int, str]:
     """Windows 下以管理员权限运行 pip 命令（install/uninstall），返回 (exit_code, 合并输出)。
 
     cmd 形如 [python_path, "-m", "pip", "install"|"uninstall", ...]，其中 python_path
-    可能位于受保护的 C:\\Program Files。通过临时 ps1 脚本 + ShellExecuteEx(runas) 提权，
+    可能位于受保护的 C:\\Program Files。通过临时 bat 脚本 + ShellExecuteEx(runas) 提权，
     并把输出重定向到临时文件以便捕获。
+
+    注意：不使用 PowerShell Out-File，因其在提权隔离会话中可能静默失败（utf8NoBOM 编码
+    参数不识别、管道断裂等），导致输出丢失且 exit_code 仍为 0。
+    cmd.exe 的 > 重定向是最可靠的选择。
     """
     pid = os.getpid()
     out_file = os.path.join(tempfile.gettempdir(), f"dcc_bridge_debugpy_{pid}.log")
-    ps1_file = os.path.join(tempfile.gettempdir(), f"dcc_bridge_debugpy_{pid}.ps1")
+    bat_file = os.path.join(tempfile.gettempdir(), f"dcc_bridge_debugpy_{pid}.bat")
 
     python_path = cmd[0]
     # 其余参数原样拼接；含空格的参数加引号
     pip_args = " ".join(f'"{a}"' if " " in a else a for a in cmd[1:])
-    # utf8NoBOM 避免输出文件带 BOM（\ufeff），防止后续 GBK 控制台打印时报编码错误。
-    # 同时，若 PowerShell 版本不支持 utf8NoBOM（极少见），外层 lstrip 会兜底。
-    ps1 = (
-        f'$py = "{python_path}"\n'
-        f'& $py {pip_args} 2>&1 | Out-File -Encoding utf8NoBOM "{out_file}"\n'
-        f"exit $LASTEXITCODE\n"
+    # chcp 65001 确保 pip 输出被重定向为 UTF-8，便于后续读取
+    bat_content = (
+        f"@chcp 65001 > nul\r\n"
+        f'@"{python_path}" {pip_args} > "{out_file}" 2>&1\r\n'
     )
-    with open(ps1_file, "w", encoding="utf-8") as f:
-        f.write(ps1)
+
+    print(f"[DEBUG] _run_pip_elevated: python_path={python_path}")
+    print(f"[DEBUG] _run_pip_elevated: pip_args={pip_args}")
+    print(f"[DEBUG] _run_pip_elevated: bat_file={bat_file}")
+    print(f"[DEBUG] _run_pip_elevated: out_file={out_file}")
+    print(f"[DEBUG] _run_pip_elevated: python exists={os.path.exists(python_path)}")
+    print("[DEBUG] _run_pip_elevated: bat content:")
+    for line in bat_content.strip().split("\n"):
+        print(f"  | {line}")
+
+    with open(bat_file, "w", encoding="ascii") as f:
+        f.write(bat_content)
+    print(f"[DEBUG] _run_pip_elevated: bat written, size={os.path.getsize(bat_file)} bytes")
+
+    cmd_exe = os.environ.get("ComSpec", "cmd.exe")
+    cmd_params = f'/c "{bat_file}"'
+    print(f"[DEBUG] _run_pip_elevated: ShellExecuteEx runas exe={cmd_exe}")
+    print(f"[DEBUG] _run_pip_elevated: ShellExecuteEx runas params={cmd_params}")
+
     try:
-        exit_code = _shell_execute_ex_runas(
-            "powershell.exe",
-            f'-NoProfile -ExecutionPolicy Bypass -File "{ps1_file}"',
-        )
-        output = ""
+        exit_code = _shell_execute_ex_runas(cmd_exe, cmd_params)
+        print(f"[DEBUG] _run_pip_elevated: ShellExecuteEx returned exit_code={exit_code}")
+    except Exception as e:
+        print(f"[ERROR] _run_pip_elevated: ShellExecuteEx failed: {e}")
+        raise
+
+    output = ""
+    if os.path.exists(out_file):
+        out_size = os.path.getsize(out_file)
+        print(f"[DEBUG] _run_pip_elevated: out_file exists, size={out_size} bytes")
         try:
-            with open(out_file, "r", encoding="utf-8-sig", errors="replace") as f:
+            with open(out_file, "r", encoding="utf-8", errors="replace") as f:
                 output = f.read()
-        except FileNotFoundError:
-            output = ""
+            print(f"[DEBUG] _run_pip_elevated: out_file content ({len(output)} chars):")
+            for line in output.strip().split("\n")[:30]:
+                print(f"  | {line}")
+            if output.count("\n") >= 30:
+                print(f"  | ... ({output.count(chr(10))} lines total, truncated)")
+        except Exception as e:
+            print(f"[ERROR] _run_pip_elevated: failed to read out_file: {e}")
+    else:
+        print("[DEBUG] _run_pip_elevated: out_file does NOT exist after ShellExecuteEx!")
+        # 保留 bat/log 文件以便排查问题
+        print(f"[DEBUG] _run_pip_elevated: keeping temp files for debugging:")
+        print(f"  bat_file = {bat_file}")
+        print(f"  out_file = {out_file}")
         return exit_code, output
-    finally:
-        for p in (ps1_file, out_file):
-            try:
+
+    print(f"[DEBUG] _run_pip_elevated: cleaning up {bat_file}, {out_file}")
+    for p in (bat_file, out_file):
+        try:
+            if os.path.exists(p):
                 os.remove(p)
-            except OSError:
-                pass
+                print(f"[DEBUG] _run_pip_elevated: removed {p}")
+        except OSError as e:
+            print(f"[WARN] _run_pip_elevated: failed to remove {p}: {e}")
+
+    return exit_code, output
 
 
 def _safe_console_write(text: str) -> None:

@@ -184,7 +184,6 @@ def start_server(
     # 自动检测 DCC 环境
     dcc_name = dcc_name or detect_dcc()
     print(f"Detected DCC: {dcc_name}")
-
     try:
         from dcc_bridge import discovery
         from dcc_bridge.server import SocketServerThread
@@ -196,8 +195,16 @@ def start_server(
 
         adapter = get_adapter(dcc_name)
 
+        # Houdini 走 adapter.run_on_main_thread（一次性事件循环回调），不 import
+        # PySide，避免双 Qt 崩溃；Blender 无 Qt 也走 adapter 路径；其余 Qt DCC
+        # 用 Signal 派发。
+        use_qt_signal = dcc_name not in ("houdini", "blender")
+
         server_thread = SocketServerThread(
-            adapter=adapter, port=actual_port, host=host
+            adapter=adapter,
+            port=actual_port,
+            host=host,
+            use_qt_signal=use_qt_signal,
         )
         server_thread.start()
 

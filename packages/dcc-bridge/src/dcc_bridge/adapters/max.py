@@ -48,8 +48,8 @@ class MaxAdapter(DCCAdapter):
         """
         返回 3ds Max 的 Python 解释器路径
 
-        2021 及以上版本: <Max目录>\Python\python.exe
-        2020 及以下版本: <Max目录>\3dsmaxpy.exe
+        2021 及以上版本: <Max目录>\\Python\\python.exe
+        2020 及以下版本: <Max目录>\\3dsmaxpy.exe
         """
         exe_dir = os.path.dirname(super().get_python_path())
         try:

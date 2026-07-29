@@ -1,9 +1,14 @@
 """
 通用 TCP 服务端模块
 
-基于 threading.Thread 实现，提供后台监听服务，在收到请求时执行 Python 代码。
-与具体 DCC 框架（Qt 等）无关：主线程/目标线程的派发由各 DCC 的
-adapter.run_on_main_thread 决定（如 Blender 用 bpy.app.timers 派发到主线程）。
+监听端口在后台 threading.Thread 中进行；收到客户端代码后，一律在主线程执行：
+- Qt DCC（Maya/Max/SP/SD）：延迟构造的 QObject 处理器，后台线程 emit Signal，
+  由主线程 Qt 事件循环 marshal 执行（PySide 延迟导入，仅此处需要时才加载）。
+- Houdini / Blender：通过 adapter.run_on_main_thread 派发（Houdini 用一次性注册的
+  hou.ui.addEventLoopCallback 轮询队列；Blender 用 bpy.app.timers）。
+
+Houdini / Blender 下本模块绝不 import PySide，避免 Houdini 进程内双 Qt 库 ABI
+冲突导致的崩溃。无论哪种方式，客户端发来的代码都保证在 DCC 主线程执行。
 """
 
 from __future__ import annotations
@@ -17,18 +22,28 @@ import traceback
 
 from .protocol import Request, Response, decode_message, encode_message
 
+# Qt 采用「延迟导入」：仅在使用 Signal 派发的 DCC（Maya/Max/SP/SD）真正需要时才
+# import PySide（在 _create_qt_request_handler 中）。Houdini / Blender 走
+# adapter.run_on_main_thread 分支，绝不 import PySide，从而避免 Houdini 进程内加载到
+# 与自带 Qt 不同版本的 PySide 导致的崩溃（双 Qt 库 ABI 冲突，典型表现为 QThread.start()
+# 直接 segfault）。
 
-class RequestHandler:
+
+class _RequestHandlerBase:
     """
-    请求处理器
+    请求处理共享逻辑（与 UI 框架无关）
 
-    收到请求后在目标上下文（由 adapter.run_on_main_thread 决定）中执行代码并返回结果。
-    本身不依赖任何 GUI 框架。
+    收到请求后在主线程中执行代码并返回结果。主线程派发由外层机制保证：
+    - Qt 环境：RequestHandler(QObject) 通过 Signal 在主线程触发本类的 handle()
+    - 非 Qt 环境（Blender）：由 adapter.run_on_main_thread 调用本类的 handle()
     """
 
     def __init__(self, adapter):
         self.adapter = adapter
         self.logger = adapter.get_logger()
+        # 协作式调用下一基类（Qt 环境为 QObject，非 Qt 环境为 object），
+        # 确保多重继承链上所有 __init__ 都被正确调用。
+        super().__init__()
 
     def handle(self, conn, request_data: dict, done_event):
         try:
@@ -36,7 +51,9 @@ class RequestHandler:
         except Exception as e:
             self.logger.error(f"Failed to parse request: {e}")
             try:
-                response = Response.failure(id="unknown", message=f"Invalid request: {e}")
+                response = Response.failure(
+                    id="unknown", message=f"Invalid request: {e}"
+                )
                 conn.send(encode_message(response))
             except Exception:
                 pass
@@ -109,14 +126,18 @@ class RequestHandler:
                 sys.stderr = old_stderr
                 try:
                     port = params.get("port", 7012)
-                    python_path = params.get("python_path") or self.adapter.get_python_path()
+                    python_path = (
+                        params.get("python_path") or self.adapter.get_python_path()
+                    )
                     self.logger.info(
                         f"[DEBUG] Handling start_debugpy: port={port}, python_path={python_path}"
                     )
                     try:
                         from .debug import start_debugpy_server
 
-                        self.logger.info("[DEBUG] import start_debugpy_server succeeded")
+                        self.logger.info(
+                            "[DEBUG] import start_debugpy_server succeeded"
+                        )
                     except Exception as import_err:
                         self.logger.error(
                             f"[ERROR] Failed to import start_debugpy_server: {import_err}"
@@ -139,7 +160,9 @@ class RequestHandler:
             elif method == "install_debugpy":
                 # 不恢复 stdout/stderr，让 pip 安装日志通过 captured 返回给
                 # VS Code 的 DCC Python 输出频道，而非直接输出到 DCC 控制台
-                python_path = params.get("python_path") or self.adapter.get_python_path()
+                python_path = (
+                    params.get("python_path") or self.adapter.get_python_path()
+                )
                 pip_index_url = params.get("pip_index_url", "")
                 self.logger.info(
                     f"[DEBUG] Handling install_debugpy: python_path={python_path}, "
@@ -177,7 +200,9 @@ class RequestHandler:
                 )
 
             else:
-                return Response.failure(id=request.id, message=f"Unknown method: {method}")
+                return Response.failure(
+                    id=request.id, message=f"Unknown method: {method}"
+                )
 
             output = captured.getvalue().strip()
             output_lines = output.split("\n") if output else []
@@ -197,24 +222,83 @@ class RequestHandler:
             sys.stderr = old_stderr
 
 
+def _create_qt_request_handler(adapter):
+    """延迟导入 PySide 并构造基于 Signal 的请求处理器（仅 Qt DCC 使用）。
+
+    返回 QObject 子类实例；若 PySide 不可用则返回 None，调用方退化为
+    adapter.run_on_main_thread 派发（如 Blender、Houdini）。
+    """
+    try:
+        from PySide2.QtCore import QObject, Signal  # type: ignore
+    except ImportError:
+        try:
+            from PySide6.QtCore import QObject, Signal  # type: ignore
+        except ImportError:
+            return None
+
+    class _QtRequestHandler(_RequestHandlerBase, QObject):
+        """请求处理器（运行在主线程）：通过 Signal 接收后台线程请求并执行代码。"""
+
+        execute_request = Signal(object, dict, object)
+        """Signal: (connection_object, request_dict, done_event)"""
+
+        def __init__(self, adapter):
+            super().__init__(adapter)
+            self.execute_request.connect(self.handle)
+
+    return _QtRequestHandler(adapter)
+
+
+class ThreadRequestHandler(_RequestHandlerBase):
+    """非 Qt 环境的请求处理器：handle() 由 adapter.run_on_main_thread 调用。"""
+
+
 class SocketServerThread(threading.Thread):
     """
-    后台 Socket 服务线程
+    后台 Socket 服务线程（始终为 threading.Thread）
 
-    监听指定端口，接收客户端连接，解析请求并通过 adapter.run_on_main_thread
-    将处理派发到目标上下文（主线程或后台线程，取决于 DCC），不依赖任何 GUI 框架。
+    监听端口在后台线程进行；请求派发到主线程的方式由 use_qt_signal 决定：
+    - Qt DCC（Maya/Max/SP/SD）：延迟构造的 QObject 处理器，后台线程 emit Signal，
+      由主线程 Qt 事件循环 marshal 执行（不依赖 QThread 基类）。
+    - Houdini / Blender：通过 adapter.run_on_main_thread 派发。
+      Houdini 使用一次性注册的 hou.ui.addEventLoopCallback 轮询队列（避免每请求
+      注册的永久累积/死循环）；Blender 使用 bpy.app.timers。
+
+    无论哪种方式，客户端发来的代码都保证在 DCC 主线程执行。且本模块在 Houdini /
+    Blender 下绝不 import PySide，规避 Houdini 进程内双 Qt 库 ABI 冲突导致的崩溃。
     """
 
-    def __init__(self, adapter, port: int = 7002, host: str = "127.0.0.1"):
+    def __init__(
+        self,
+        adapter,
+        port: int = 7002,
+        host: str = "127.0.0.1",
+        dcc_type: str = "unknown",
+        use_qt_signal: bool = False,
+    ):
         super().__init__(daemon=True)
-        self.adapter = adapter
-        self.logger = adapter.get_logger()
         self.port = port
         self.host = host
-
+        self.adapter = adapter
+        self.dcc_type = dcc_type
+        self.logger = adapter.get_logger() if adapter else None
         self.server_socket = None
         self.running = True
-        self.request_handler = RequestHandler(adapter)
+
+        # 是否使用 Qt Signal 派发（仅 Maya/Max/SP/SD）。Houdini / Blender 为 False，
+        # 此时本模块完全不 import PySide。
+        self.use_qt_signal = bool(use_qt_signal)
+        if self.use_qt_signal:
+            self.qt_handler = _create_qt_request_handler(adapter)
+            if self.qt_handler is None:
+                # PySide 不可用，退化为 adapter 派发
+                self.use_qt_signal = False
+                self.request_handler = ThreadRequestHandler(adapter)
+            else:
+                self.request_handler = self.qt_handler
+        else:
+            self.qt_handler = None
+            self.request_handler = ThreadRequestHandler(adapter)
 
     def run(self):
         try:
@@ -281,14 +365,21 @@ class SocketServerThread(threading.Thread):
                             continue
 
                         if isinstance(message, Request):
-                            # 等待目标上下文处理完成，但不关闭连接
+                            # 等待主线程处理完成，但不关闭连接
                             done_event = threading.Event()
-                            self.adapter.run_on_main_thread(
-                                self.request_handler.handle,
-                                conn,
-                                message.to_dict(),
-                                done_event,
-                            )
+                            if self.use_qt_signal and self.qt_handler is not None:
+                                # 后台线程 emit -> Qt 自动 marshal 到主线程执行
+                                self.qt_handler.execute_request.emit(
+                                    conn, message.to_dict(), done_event
+                                )
+                            else:
+                                # Houdini / Blender：通过 adapter 派发到主线程
+                                self.adapter.run_on_main_thread(
+                                    self.request_handler.handle,
+                                    conn,
+                                    message.to_dict(),
+                                    done_event,
+                                )
                             done_event.wait(timeout=60.0)
                         else:
                             self._log("Received non-request message, ignoring")
@@ -336,4 +427,5 @@ class SocketServerThread(threading.Thread):
         return self.running and self.is_alive()
 
     def _log(self, message: str):
-        self.logger.info(message)
+        if self.logger:
+            self.logger.info(message)

@@ -88,13 +88,30 @@ class BlenderAdapter(DCCAdapter):
         在 Blender 主线程执行回调
 
         Blender 的 bpy 操作必须在主线程执行，而服务端运行在后台线程。
-        通过 bpy.app.timers.register 把回调排到主线程的事件循环下一拍执行。
+        通过 bpy.app.timers.register 把回调排到主线程的事件循环下一拍执行，
+        并用 threading.Event 阻塞等待完成，确保异常能被正确传播到调用方。
         """
         import bpy
+        import threading
 
-        bpy.app.timers.register(
-            lambda: callback(*args, **kwargs), first_interval=0
-        )
+        result = []
+        error = []
+        event = threading.Event()
+
+        def _wrapper():
+            try:
+                result.append(callback(*args, **kwargs))
+            except Exception as e:
+                error.append(e)
+            finally:
+                event.set()
+
+        bpy.app.timers.register(_wrapper, first_interval=0)
+        event.wait(timeout=60.0)
+
+        if error:
+            raise error[0]
+        return result[0] if result else None
 
     def add_sys_path(self, path: str) -> None:
         super().add_sys_path(path)
