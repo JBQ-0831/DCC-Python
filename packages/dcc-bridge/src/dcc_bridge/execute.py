@@ -1,12 +1,44 @@
-from __future__ import annotations
+# -*- coding: utf-8 -*-
+"""
+DCC 内代码执行模块
+
+提供在 DCC 主线程中执行 Python 代码字符串 / 文件的能力，并尽量复现
+交互式 REPL 的「打印最后一个表达式结果」行为，以及跨版本兼容的异常回溯。
+
+兼容 Python 2.7 / 3.x：
+- 不使用 from __future__ import annotations、f-string、签名/变量注解、
+  PEP 604 联合类型等 py3-only 语法。
+- AST 节点构造按版本分支：py3.8+ 用 ast.Constant，py3.0~3.7 用 ast.NameConstant，
+  py2 用 ast.Name(id="None")；位置信息（lineno/end_lineno）仅在 py3 传入。
+- 异常回溯兼容 py2：traceback 对象通过 sys.exc_info() 显式传入（py2 无
+  exception.__traceback__），格式化统一用元组形式（py2/py3 的 format_list 均支持），
+  链式异常 __context__ 用 getattr 兜底（py2 无该属性）。
+- 文件读取用 io.open 以支持 encoding 参数。
+"""
 
 import ast
+import io
 import os
 import sys
 import traceback
 
 
-def get_exec_globals() -> dict:
+def _make_none_node(pos=None):
+    """构造表示 None 的 AST 节点（按 Python 版本分支）。
+
+    pos: py3 下携带 lineno/col_offset/end_* 的位置信息字典（py2 下为空）。
+    """
+    pos = pos or {}
+    if sys.version_info >= (3, 8):
+        return ast.Constant(value=None, **pos)
+    elif sys.version_info >= (3, 0):
+        return ast.NameConstant(value=None, **pos)
+    else:
+        # py2 中 None 是名字（不是常量节点）
+        return ast.Name(id="None", ctx=ast.Load(), **pos)
+
+
+def get_exec_globals():
     if "__VsCodeVariables__" not in globals():
         globals()["__VsCodeVariables__"] = {
             "__builtins__": __builtins__,
@@ -15,10 +47,10 @@ def get_exec_globals() -> dict:
     return globals()["__VsCodeVariables__"]
 
 
-def find_package(filepath: str) -> str:
+def find_package(filepath):
     normalized_filepath = os.path.normpath(filepath).lower()
 
-    valid_packages: list[str] = []
+    valid_packages = []
     for path in sys.path:
         normalized_path = os.path.normpath(path).lower()
         if normalized_filepath.startswith(normalized_path):
@@ -34,56 +66,64 @@ def find_package(filepath: str) -> str:
     return ""
 
 
-def add_print_for_last_expr(parsed_code: ast.Module) -> ast.Module:
+def add_print_for_last_expr(parsed_code):
     if parsed_code.body:
         last_expr = parsed_code.body[-1]
         if isinstance(last_expr, ast.Expr):
             temp_var_name = "_"
 
-            line_info: dict = {
-                "lineno": last_expr.lineno,
-                "col_offset": last_expr.col_offset,
-            }
-
+            # 位置信息仅在 py3 的 AST 构造器中可用（py2 构造器不接受 lineno 等）
+            pos = {}
             if sys.version_info >= (3, 8):
-                line_info["end_lineno"] = last_expr.end_lineno
-                line_info["end_col_offset"] = last_expr.end_col_offset
+                pos = {
+                    "lineno": getattr(last_expr, "lineno", 1),
+                    "col_offset": getattr(last_expr, "col_offset", 0),
+                    "end_lineno": getattr(last_expr, "end_lineno", 1),
+                    "end_col_offset": getattr(last_expr, "end_col_offset", 0),
+                }
+            elif sys.version_info >= (3, 0):
+                pos = {
+                    "lineno": getattr(last_expr, "lineno", 1),
+                    "col_offset": getattr(last_expr, "col_offset", 0),
+                }
 
-            temp_var_assign = ast.Assign(
-                targets=[ast.Name(id=temp_var_name, ctx=ast.Store(), **line_info)],
-                value=last_expr.value,
-                **line_info,
+            none_node_for_compare = _make_none_node(pos)
+            none_node_for_else = _make_none_node(pos)
+
+            test = ast.Compare(
+                left=ast.Name(id=temp_var_name, ctx=ast.Load(), **pos),
+                ops=[ast.IsNot()],
+                comparators=[none_node_for_compare],
+                **pos
             )
-
+            print_call = ast.Call(
+                func=ast.Name(id="print", ctx=ast.Load(), **pos),
+                args=[ast.Name(id=temp_var_name, ctx=ast.Load(), **pos)],
+                keywords=[],
+                **pos
+            )
             print_stmt = ast.IfExp(
-                test=ast.Compare(
-                    left=ast.Name(id=temp_var_name, ctx=ast.Load(), **line_info),
-                    ops=[ast.IsNot()],
-                    comparators=[ast.Constant(value=None, **line_info)],
-                    **line_info,
-                ),
-                body=ast.Call(
-                    func=ast.Name(id="print", ctx=ast.Load(), **line_info),
-                    args=[ast.Name(id=temp_var_name, ctx=ast.Load(), **line_info)],
-                    keywords=[],
-                    **line_info,
-                ),
-                orelse=ast.Constant(value=None, **line_info),
-                **line_info,
+                test=test,
+                body=print_call,
+                orelse=none_node_for_else,
+                **pos
+            )
+            temp_var_assign = ast.Assign(
+                targets=[ast.Name(id=temp_var_name, ctx=ast.Store(), **pos)],
+                value=last_expr.value,
+                **pos
             )
 
             parsed_code.body[-1] = temp_var_assign
-            parsed_code.body.append(ast.Expr(value=print_stmt, **line_info))
+            parsed_code.body.append(ast.Expr(value=print_stmt, **pos))
 
     return parsed_code
 
 
-def format_exception(
-    exception_in: BaseException,
-    filename: str,
-    code: str,
-    num_ignore_tracebacks: int = 0,
-) -> str:
+def format_exception(exception_in, filename, code, tb=None, num_ignore_tracebacks=0):
+    if tb is None:
+        tb = getattr(exception_in, "__traceback__", None)
+
     seen_exceptions = set()
     messages = []
     lines = code.splitlines()
@@ -95,39 +135,31 @@ def format_exception(
         seen_exceptions.add(id(exception))
 
         traceback_stack = []
-        for frame_summary in traceback.extract_tb(exception.__traceback__):
+        for frame_summary in traceback.extract_tb(tb):
             if num_ignore_tracebacks > 0:
                 num_ignore_tracebacks -= 1
                 continue
 
-            if frame_summary.filename == filename and (
-                frame_summary.lineno is not None
-                and 0 < frame_summary.lineno <= len(lines)
+            # py2: extract_tb 返回元组 (filename, lineno, name, line)
+            # py3: 返回 FrameSummary 对象，需取属性
+            if isinstance(frame_summary, tuple):
+                fs_filename, fs_lineno, fs_name, fs_line = frame_summary
+            else:
+                fs_filename = frame_summary.filename
+                fs_lineno = frame_summary.lineno
+                fs_name = frame_summary.name
+                fs_line = frame_summary.line
+
+            if fs_filename == filename and (
+                fs_lineno is not None and 0 < fs_lineno <= len(lines)
             ):
-                line = lines[frame_summary.lineno - 1]
+                line = lines[fs_lineno - 1]
             else:
-                line = frame_summary.line
+                line = fs_line
 
-            if sys.version_info >= (3, 11):
-                col_info = {
-                    "end_lineno": frame_summary.end_lineno,
-                    "colno": frame_summary.colno,
-                    "end_colno": frame_summary.end_colno,
-                }
-            else:
-                col_info = {}
-
-            traceback_stack.append(
-                traceback.FrameSummary(
-                    f"{frame_summary.filename}:{frame_summary.lineno}",
-                    frame_summary.lineno,
-                    frame_summary.name,
-                    lookup_line=False,
-                    locals=frame_summary.locals,
-                    line=line,
-                    **col_info,
-                )
-            )
+            tb_filename = "{0}:{1}".format(fs_filename, fs_lineno)
+            # format_list 在 py2/py3 均接受 (filename, lineno, name, line) 元组
+            traceback_stack.append((tb_filename, fs_lineno, fs_name, line))
 
         if isinstance(exception, SyntaxError):
             if exception.filename == filename:
@@ -142,16 +174,19 @@ def format_exception(
 
         messages.append(text)
 
-        exception = exception.__context__
+        # py2 异常无 __context__ 属性，getattr 兜底返回 None
+        exception = getattr(exception, "__context__", None)
 
     return "\nDuring handling of the above exception, another exception occurred:\n\n".join(
         reversed(messages)
     )
 
 
-def handle_exception(exception, filename, code, use_colors, num_ignore_tracebacks=0):
+def handle_exception(
+    exception, filename, code, use_colors, num_ignore_tracebacks=0, tb=None
+):
     traceback_message = format_exception(
-        exception, filename, code, num_ignore_tracebacks
+        exception, filename, code, tb=tb, num_ignore_tracebacks=num_ignore_tracebacks
     )
 
     if use_colors:
@@ -161,15 +196,17 @@ def handle_exception(exception, filename, code, use_colors, num_ignore_traceback
     print(traceback_message)
 
 
-def execute_code(code: str, filename: str, debugging: bool, exec_globals: dict | None = None):
+def execute_code(code, filename, debugging, exec_globals=None):
     if exec_globals is None:
         exec_globals = get_exec_globals()
 
     try:
         parsed_code = ast.parse(code, filename)
-    except (SyntaxError, ValueError) as e:
+    except (SyntaxError, ValueError):
+        exc_type, exc_val, exc_tb = sys.exc_info()
         handle_exception(
-            e, filename, code, use_colors=debugging, num_ignore_tracebacks=2
+            exc_val, filename, code, use_colors=debugging,
+            num_ignore_tracebacks=2, tb=exc_tb
         )
         return
 
@@ -177,18 +214,15 @@ def execute_code(code: str, filename: str, debugging: bool, exec_globals: dict |
 
     try:
         exec(compile(parsed_code, filename, "exec"), exec_globals)
-    except Exception as e:
+    except Exception:
+        exc_type, exc_val, exc_tb = sys.exc_info()
         handle_exception(
-            e, filename, code, use_colors=debugging, num_ignore_tracebacks=1
+            exc_val, filename, code, use_colors=debugging,
+            num_ignore_tracebacks=1, tb=exc_tb
         )
 
 
-def main(
-    exec_file: str,
-    exec_origin: str,
-    name_var: str | None = None,
-    is_debugging: bool = False,
-):
+def main(exec_file, exec_origin, name_var=None, is_debugging=False):
     exec_globals = get_exec_globals()
 
     exec_globals["__file__"] = exec_origin
@@ -199,8 +233,10 @@ def main(
 
     exec_globals["__package__"] = find_package(exec_origin)
 
-    with open(exec_file, "r", encoding="utf-8") as vscode_in_file:
-        execute_code(vscode_in_file.read(), exec_origin, is_debugging, exec_globals)
+    with io.open(exec_file, "r", encoding="utf-8") as vscode_in_file:
+        execute_code(
+            vscode_in_file.read(), exec_origin, is_debugging, exec_globals
+        )
 
     if is_debugging:
         print(">>>")

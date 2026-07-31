@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 DCC TCP 服务端启动脚本
 
@@ -12,15 +13,16 @@ DCC TCP 服务端启动脚本
 
 默认端口：7002
 如需更改端口，修改下方的 DEFAULT_PORT 常量，或在调用 start_server() 时传入参数
-"""
 
-from __future__ import annotations
+兼容 Python 2.7 / 3.x：不使用 from __future__ import annotations、
+f-string、无参 super、变量/签名注解等 py3-only 语法。
+"""
 
 DEFAULT_PORT = 7002
 DEFAULT_HOST = "127.0.0.1"
 
 
-def detect_dcc() -> str:
+def detect_dcc():
     """自动检测当前运行的 DCC 软件
 
     Returns:
@@ -78,7 +80,7 @@ def detect_dcc() -> str:
     return "generic"
 
 
-def get_adapter(dcc_name: str):
+def get_adapter(dcc_name):
     """根据 DCC 名称获取对应的 Adapter
 
     Args:
@@ -148,9 +150,7 @@ def get_adapter(dcc_name: str):
         return DCCAdapter()
 
 
-def _find_available_port(
-    start_port: int, host: str = DEFAULT_HOST, max_tries: int = 100
-) -> int:
+def _find_available_port(start_port, host=DEFAULT_HOST, max_tries=100):
     """从 start_port 开始递增，找到可用端口"""
     import socket as _socket
 
@@ -161,14 +161,12 @@ def _find_available_port(
             s.bind((host, candidate))
             s.close()
             return candidate
-        except OSError:
+        except _socket.error:
             continue
     return start_port  # fallback，让 server 自行报错
 
 
-def start_server(
-    port: int = DEFAULT_PORT, host: str = DEFAULT_HOST, dcc_name: str = None
-):
+def start_server(port=DEFAULT_PORT, host=DEFAULT_HOST, dcc_name=None):
     """启动 DCC Bridge TCP 服务端
 
     如果指定端口已被占用，自动递增寻找可用端口。
@@ -183,7 +181,7 @@ def start_server(
     """
     # 自动检测 DCC 环境
     dcc_name = dcc_name or detect_dcc()
-    print(f"Detected DCC: {dcc_name}")
+    print("Detected DCC: {0}".format(dcc_name))
     try:
         from dcc_bridge import discovery
         from dcc_bridge.server import SocketServerThread
@@ -191,7 +189,7 @@ def start_server(
         # 端口冲突时自动递增
         actual_port = _find_available_port(port, host)
         if actual_port != port:
-            print(f"Port {port} is in use, using {actual_port} instead")
+            print("Port {0} is in use, using {1} instead".format(port, actual_port))
 
         adapter = get_adapter(dcc_name)
 
@@ -219,18 +217,20 @@ def start_server(
         # 发现文件由 CLI / 扩展在读取时通过惰性 PID 检查自动清理。
 
         logger = adapter.get_logger()
-        logger.info(f"DCC Bridge Server started on {host}:{actual_port}")
-        print(f"DCC Bridge Server started on {host}:{actual_port}")
+        logger.info(
+            "DCC Bridge Server started on {0}:{1}".format(host, actual_port)
+        )
+        print("DCC Bridge Server started on {0}:{1}".format(host, actual_port))
         print("Waiting for connections...")
 
         return server_thread
 
     except ImportError as e:
-        print(f"Import error: {e}")
+        print("Import error: {0}".format(e))
         print("Make sure the dcc-bridge package is installed and in sys.path")
         raise
     except Exception as e:
-        print(f"Error starting server: {e}")
+        print("Error starting server: {0}".format(e))
         import traceback
 
         traceback.print_exc()

@@ -1,9 +1,11 @@
+# -*- coding: utf-8 -*-
 """
 Maya Adapter
 实现 Maya 特定的日志、Python 路径和初始化逻辑
-"""
 
-from __future__ import annotations
+兼容 Python 2.7 / 3.x：不使用 from __future__ import annotations、
+变量注解、f-string、无参 super() 等 py3-only 语法。
+"""
 
 import sys
 import os
@@ -17,16 +19,16 @@ class MayaLogger(Logger):
     # channel = "Maya"
 
     @classmethod
-    def info(cls, message: str):
-        super().info(message)
+    def info(cls, message):
+        super(MayaLogger, cls).info(message)
 
     @classmethod
-    def warn(cls, message: str):
-        super().warn(message)
+    def warn(cls, message):
+        super(MayaLogger, cls).warn(message)
 
     @classmethod
-    def error(cls, message: str):
-        super().error(message)
+    def error(cls, message):
+        super(MayaLogger, cls).error(message)
 
 
 class MayaAdapter(DCCAdapter):
@@ -39,12 +41,12 @@ class MayaAdapter(DCCAdapter):
     - 初始化逻辑
     """
 
-    name: str = "maya"
+    name = "maya"
 
-    def get_logger(self) -> Logger:
+    def get_logger(self):
         return MayaLogger
 
-    def get_python_path(self) -> str:
+    def get_python_path(self):
         """
         返回 Maya 的 Python 解释器路径（mayapy.exe）
 
@@ -52,11 +54,13 @@ class MayaAdapter(DCCAdapter):
         但 pip 和 debugpy 需要用 mayapy.exe（独立 Python 解释器）。
         mayapy.exe 与 maya.exe 同在 bin 目录下。
         """
-        exe_dir = os.path.dirname(super().get_python_path())
+        exe_dir = os.path.dirname(
+            super(MayaAdapter, self).get_python_path()
+        )
         exe_name = "mayapy.exe" if sys.platform == "win32" else "mayapy"
         return os.path.join(exe_dir, exe_name)
 
-    def on_connected(self) -> None:
+    def on_connected(self):
         try:
             # 兼容Pyside2/Pyside6 + 对应shiboken
             try:
@@ -66,19 +70,20 @@ class MayaAdapter(DCCAdapter):
                 from PySide6.QtWidgets import QWidget
                 from shiboken6 import wrapInstance
             import maya.OpenMayaUI as omui
+
             parent_window = wrapInstance(int(omui.MQtUtil.mainWindow()), QWidget)
         except:
             logger = self.get_logger()
             logger.error("无法获取主窗口。maya.OpenMayaUI 不可用。")
             return
-        super()._on_connected(parent_window)
+        super(MayaAdapter, self)._on_connected(parent_window)
 
-    def add_sys_path(self, path: str) -> None:
-        super().add_sys_path(path)
+    def add_sys_path(self, path):
+        super(MayaAdapter, self).add_sys_path(path)
         logger = self.get_logger()
-        logger.info(f"Added to {self.name} sys.path: {path}")
+        logger.info("Added to {0} sys.path: {1}".format(self.name, path))
 
-    def get_version(self) -> str:
+    def get_version(self):
         try:
             from maya import cmds
 
@@ -86,4 +91,4 @@ class MayaAdapter(DCCAdapter):
             print(version)
             return version
         except:
-            return super().get_version()
+            return super(MayaAdapter, self).get_version()

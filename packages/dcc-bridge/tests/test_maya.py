@@ -335,14 +335,14 @@ class TestUnsetup:
 
 class TestMultiVersionSetup:
     def test_setup_all_versions_when_no_version_specified(self, setup_instance, populated_registry, mock_home):
-        """不指定版本时应为所有 2020+ 的已安装版本注入脚本"""
+        """不指定版本时应为所有 2018+ 的已安装版本注入脚本"""
         assert setup_instance.setup() is True
         for ver in ("2022", "2024"):
             script_path = mock_home / "Documents" / "maya" / ver / "scripts" / "dcc_bridge_startup.py"
             assert script_path.exists(), f"startup script not found for {ver}"
 
     def test_unsetup_all_versions_when_no_version_specified(self, setup_instance, populated_registry, mock_home):
-        """不指定版本时应移除所有 2020+ 的已安装版本脚本"""
+        """不指定版本时应移除所有 2018+ 的已安装版本脚本"""
         setup_instance.setup()
         assert setup_instance.unsetup() is True
         for ver in ("2022", "2024"):
@@ -362,9 +362,12 @@ class TestMultiVersionSetup:
         assert setup_instance.setup() is False
 
     def test_filters_below_min_supported(self, setup_instance, mock_registry, mock_home):
-        """不指定版本时应跳过低于 2020 的版本"""
+        """不指定版本时应跳过低于 2018 的版本（2017 被过滤，2018/2024 注入）"""
         values, subkeys = mock_registry
-        subkeys[MAYA_REG_BASE] = ["2018", "2024"]
+        subkeys[MAYA_REG_BASE] = ["2017", "2018", "2024"]
+        values[f"{MAYA_REG_BASE}\\2017\\Setup\\InstallPath"] = {
+            "MAYA_INSTALL_LOCATION": r"C:\Program Files\Autodesk\Maya2017\\",
+        }
         values[f"{MAYA_REG_BASE}\\2018\\Setup\\InstallPath"] = {
             "MAYA_INSTALL_LOCATION": r"C:\Program Files\Autodesk\Maya2018\\",
         }
@@ -375,12 +378,15 @@ class TestMultiVersionSetup:
         # 2024 应被注入
         script_2024 = mock_home / "Documents" / "maya" / "2024" / "scripts" / "dcc_bridge_startup.py"
         assert script_2024.exists()
-        # 2018 应被跳过
+        # 2018 现在 min_supported_version=2018，应被注入
         script_2018 = mock_home / "Documents" / "maya" / "2018" / "scripts" / "dcc_bridge_startup.py"
-        assert not script_2018.exists()
+        assert script_2018.exists()
+        # 2017 低于 min，应被跳过
+        script_2017 = mock_home / "Documents" / "maya" / "2017" / "scripts" / "dcc_bridge_startup.py"
+        assert not script_2017.exists()
 
     def test_explicit_version_below_min_still_works(self, setup_instance, mock_registry, mock_home):
-        """指定 --version 2018 时即使低于 min_supported_version 也应正常注入"""
+        """指定 --version 2018 时（等于 min 边界）也应正常注入（绕过版本过滤）"""
         values, subkeys = mock_registry
         subkeys[MAYA_REG_BASE] = ["2018"]
         values[f"{MAYA_REG_BASE}\\2018\\Setup\\InstallPath"] = {
@@ -410,13 +416,17 @@ class TestGetTargetVersions:
     """测试 _get_target_versions 的版本过滤逻辑"""
 
     def test_filters_below_min_supported(self, setup_instance, mock_registry):
-        """不指定版本时应过滤掉低于 min_supported_version 的版本"""
+        """不指定版本时应过滤掉低于 2018 的版本，保留 2018+"""
         values, subkeys = mock_registry
-        subkeys[MAYA_REG_BASE] = ["2018", "2022", "2024"]
+        subkeys[MAYA_REG_BASE] = ["2017", "2018", "2022", "2024"]
+        values[f"{MAYA_REG_BASE}\\2017\\Setup\\InstallPath"] = {
+            "MAYA_INSTALL_LOCATION": r"C:\Program Files\Autodesk\Maya2017\\",
+        }
         versions = setup_instance._get_target_versions()
         assert "2022" in versions
         assert "2024" in versions
-        assert "2018" not in versions
+        assert "2018" in versions
+        assert "2017" not in versions
 
     def test_explicit_version_not_filtered(self, setup_instance, populated_registry):
         """指定版本时不应用过滤"""
@@ -424,9 +434,9 @@ class TestGetTargetVersions:
         assert versions == ["2018"]
 
     def test_returns_empty_when_all_below_min(self, setup_instance, mock_registry):
-        """所有版本都低于 min_supported_version 时返回空列表"""
+        """所有版本都低于 min_supported_version (2018) 时返回空列表"""
         values, subkeys = mock_registry
-        subkeys[MAYA_REG_BASE] = ["2016", "2018"]
+        subkeys[MAYA_REG_BASE] = ["2016", "2017"]
         assert setup_instance._get_target_versions() == []
 
 

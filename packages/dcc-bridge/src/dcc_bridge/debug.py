@@ -1,6 +1,18 @@
-from __future__ import annotations
+# -*- coding: utf-8 -*-
+"""
+debugpy 安装 / 启动相关逻辑
+
+Windows UAC 提权安装、subprocess 调用 pip、启动 debugpy 监听等。
+本模块由 server.py 在 start_debugpy / install_debugpy 分支中懒导入，
+因此即便在 py2 DCC 中也不会真正执行（debugpy 不支持 py2）。但模块必须能在
+py2 下编译通过，故清除所有 f-string、注解等 py3-only 语法；并将
+subprocess.run（py2 无）替换为跨版本 helpers。
+
+兼容 Python 2.7 / 3.x。
+"""
 
 import ctypes
+import io
 import os
 import subprocess
 import sys
@@ -12,9 +24,28 @@ from ctypes import wintypes
 _debugpy_listening = False
 
 
-def get_python_path() -> str:
+def get_python_path():
     """返回当前 Python 解释器路径，各 DCC 的 Adapter 可覆盖此方法"""
     return sys.executable
+
+
+def _run_subprocess(cmd):
+    """跨版本运行命令，返回 (returncode, stdout_text, stderr_text)。
+
+    py2 无 subprocess.run，统一用 Popen + communicate；输出在 py2 为 bytes，
+    统一解码为文本（utf-8 + replace 兜底）。
+    """
+    proc = subprocess.Popen(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    out, err = proc.communicate()
+
+    def _to_text(b):
+        if isinstance(b, bytes):
+            return b.decode("utf-8", errors="replace")
+        return b
+
+    return proc.returncode, _to_text(out), _to_text(err)
 
 
 # ─── Windows UAC 提权安装（供 install_debugpy 在权限不足时调用）────────────
@@ -43,7 +74,7 @@ class _SHELLEXECUTEINFO(ctypes.Structure):
     ]
 
 
-def _is_user_admin() -> bool:
+def _is_user_admin():
     """Windows 下返回当前进程是否为管理员；非 Windows 一律返回 True（无需提权）。"""
     if sys.platform != "win32" or ctypes is None:
         return True
@@ -53,7 +84,7 @@ def _is_user_admin() -> bool:
         return False
 
 
-def _shell_execute_ex_runas(exe: str, params: str, cwd: str | None = None) -> int:
+def _shell_execute_ex_runas(exe, params, cwd=None):
     """以管理员权限（UAC）同步启动 exe，返回退出码。用户取消 UAC 时抛出 RuntimeError。"""
     sei = _SHELLEXECUTEINFO()
     sei.cbSize = ctypes.sizeof(sei)
@@ -79,7 +110,7 @@ def _shell_execute_ex_runas(exe: str, params: str, cwd: str | None = None) -> in
     return exit_code.value
 
 
-def _run_pip_elevated(cmd) -> tuple[int, str]:
+def _run_pip_elevated(cmd):
     """Windows 下以管理员权限运行 pip 命令（install/uninstall），返回 (exit_code, 合并输出)。
 
     cmd 形如 [python_path, "-m", "pip", "install"|"uninstall", ...]，其中 python_path
@@ -91,78 +122,98 @@ def _run_pip_elevated(cmd) -> tuple[int, str]:
     cmd.exe 的 > 重定向是最可靠的选择。
     """
     pid = os.getpid()
-    out_file = os.path.join(tempfile.gettempdir(), f"dcc_bridge_debugpy_{pid}.log")
-    bat_file = os.path.join(tempfile.gettempdir(), f"dcc_bridge_debugpy_{pid}.bat")
+    out_file = os.path.join(tempfile.gettempdir(), "dcc_bridge_debugpy_{0}.log".format(pid))
+    bat_file = os.path.join(tempfile.gettempdir(), "dcc_bridge_debugpy_{0}.bat".format(pid))
 
     python_path = cmd[0]
     # 其余参数原样拼接；含空格的参数加引号
-    pip_args = " ".join(f'"{a}"' if " " in a else a for a in cmd[1:])
+    pip_args = " ".join('"{0}"'.format(a) if " " in a else a for a in cmd[1:])
     # chcp 65001 确保 pip 输出被重定向为 UTF-8，便于后续读取
     bat_content = (
-        f"@chcp 65001 > nul\r\n"
-        f'@"{python_path}" {pip_args} > "{out_file}" 2>&1\r\n'
-    )
+        "@chcp 65001 > nul\r\n"
+        '@"{0}" {1} > "{2}" 2>&1\r\n'
+    ).format(python_path, pip_args, out_file)
 
-    print(f"[DEBUG] _run_pip_elevated: python_path={python_path}")
-    print(f"[DEBUG] _run_pip_elevated: pip_args={pip_args}")
-    print(f"[DEBUG] _run_pip_elevated: bat_file={bat_file}")
-    print(f"[DEBUG] _run_pip_elevated: out_file={out_file}")
-    print(f"[DEBUG] _run_pip_elevated: python exists={os.path.exists(python_path)}")
+    print("[DEBUG] _run_pip_elevated: python_path={0}".format(python_path))
+    print("[DEBUG] _run_pip_elevated: pip_args={0}".format(pip_args))
+    print("[DEBUG] _run_pip_elevated: bat_file={0}".format(bat_file))
+    print("[DEBUG] _run_pip_elevated: out_file={0}".format(out_file))
+    print("[DEBUG] _run_pip_elevated: python exists={0}".format(os.path.exists(python_path)))
     print("[DEBUG] _run_pip_elevated: bat content:")
     for line in bat_content.strip().split("\n"):
-        print(f"  | {line}")
+        print("  | {0}".format(line))
 
-    with open(bat_file, "w", encoding="ascii") as f:
+    with io.open(bat_file, "w", encoding="ascii") as f:
         f.write(bat_content)
-    print(f"[DEBUG] _run_pip_elevated: bat written, size={os.path.getsize(bat_file)} bytes")
+    print(
+        "[DEBUG] _run_pip_elevated: bat written, size={0} bytes".format(
+            os.path.getsize(bat_file)
+        )
+    )
 
     cmd_exe = os.environ.get("ComSpec", "cmd.exe")
-    cmd_params = f'/c "{bat_file}"'
-    print(f"[DEBUG] _run_pip_elevated: ShellExecuteEx runas exe={cmd_exe}")
-    print(f"[DEBUG] _run_pip_elevated: ShellExecuteEx runas params={cmd_params}")
+    cmd_params = '/c "{0}"'.format(bat_file)
+    print("[DEBUG] _run_pip_elevated: ShellExecuteEx runas exe={0}".format(cmd_exe))
+    print("[DEBUG] _run_pip_elevated: ShellExecuteEx runas params={0}".format(cmd_params))
 
     try:
         exit_code = _shell_execute_ex_runas(cmd_exe, cmd_params)
-        print(f"[DEBUG] _run_pip_elevated: ShellExecuteEx returned exit_code={exit_code}")
+        print(
+            "[DEBUG] _run_pip_elevated: ShellExecuteEx returned exit_code={0}".format(
+                exit_code
+            )
+        )
     except Exception as e:
-        print(f"[ERROR] _run_pip_elevated: ShellExecuteEx failed: {e}")
+        print("[ERROR] _run_pip_elevated: ShellExecuteEx failed: {0}".format(e))
         raise
 
     output = ""
     if os.path.exists(out_file):
         out_size = os.path.getsize(out_file)
-        print(f"[DEBUG] _run_pip_elevated: out_file exists, size={out_size} bytes")
+        print(
+            "[DEBUG] _run_pip_elevated: out_file exists, size={0} bytes".format(out_size)
+        )
         try:
-            with open(out_file, "r", encoding="utf-8", errors="replace") as f:
+            with io.open(out_file, "r", encoding="utf-8", errors="replace") as f:
                 output = f.read()
-            print(f"[DEBUG] _run_pip_elevated: out_file content ({len(output)} chars):")
+            print(
+                "[DEBUG] _run_pip_elevated: out_file content ({0} chars):".format(
+                    len(output)
+                )
+            )
             for line in output.strip().split("\n")[:30]:
-                print(f"  | {line}")
+                print("  | {0}".format(line))
             if output.count("\n") >= 30:
-                print(f"  | ... ({output.count(chr(10))} lines total, truncated)")
+                print(
+                    "  | ... ({0} lines total, truncated)".format(
+                        output.count("\n")
+                    )
+                )
         except Exception as e:
-            print(f"[ERROR] _run_pip_elevated: failed to read out_file: {e}")
+            print("[ERROR] _run_pip_elevated: failed to read out_file: {0}".format(e))
     else:
         print("[DEBUG] _run_pip_elevated: out_file does NOT exist after ShellExecuteEx!")
         # 保留 bat/log 文件以便排查问题
-        print(f"[DEBUG] _run_pip_elevated: keeping temp files for debugging:")
-        print(f"  bat_file = {bat_file}")
-        print(f"  out_file = {out_file}")
+        print("[DEBUG] _run_pip_elevated: keeping temp files for debugging:")
+        print("  bat_file = {0}".format(bat_file))
+        print("  out_file = {0}".format(out_file))
         return exit_code, output
 
-    print(f"[DEBUG] _run_pip_elevated: cleaning up {bat_file}, {out_file}")
+    print(
+        "[DEBUG] _run_pip_elevated: cleaning up {0}, {1}".format(bat_file, out_file)
+    )
     for p in (bat_file, out_file):
         try:
             if os.path.exists(p):
                 os.remove(p)
-                print(f"[DEBUG] _run_pip_elevated: removed {p}")
+                print("[DEBUG] _run_pip_elevated: removed {0}".format(p))
         except OSError as e:
-            print(f"[WARN] _run_pip_elevated: failed to remove {p}: {e}")
+            print("[WARN] _run_pip_elevated: failed to remove {0}: {1}".format(p, e))
 
     return exit_code, output
 
 
-def _safe_console_write(text: str) -> None:
+def _safe_console_write(text):
     """安全地将文本写入 stdout，自动处理控制台编码不兼容的字符。
 
     Windows 中文系统控制台编码为 GBK，若输出中包含 GBK 无法编码的字符
@@ -177,7 +228,7 @@ def _safe_console_write(text: str) -> None:
         sys.stdout.write(text.encode(encoding, errors="replace").decode(encoding))
 
 
-def install_debugpy(python_path: str, pip_index_url: str = ""):
+def install_debugpy(python_path, pip_index_url=""):
     if python_path is None:
         return "[ERROR] install_debugpy: python_path is None, cannot install debugpy"
 
@@ -185,10 +236,10 @@ def install_debugpy(python_path: str, pip_index_url: str = ""):
     if pip_index_url:
         cmd.extend(["-i", pip_index_url])
 
-    print(f"[DEBUG] install_debugpy: python_path={python_path}")
-    print(f"[DEBUG] install_debugpy: sys.executable={sys.executable}")
-    print(f"[DEBUG] install_debugpy: pip_index_url={pip_index_url}")
-    print(f"[DEBUG] install_debugpy: running: {' '.join(cmd)}")
+    print("[DEBUG] install_debugpy: python_path={0}".format(python_path))
+    print("[DEBUG] install_debugpy: sys.executable={0}".format(sys.executable))
+    print("[DEBUG] install_debugpy: pip_index_url={0}".format(pip_index_url))
+    print("[DEBUG] install_debugpy: running: {0}".format(" ".join(cmd)))
 
     # Windows 且非管理员时，普通进程无法写入 DCC 受 UAC 保护的 site-packages，
     # 必须先提权再安装，否则 pip 会回退到用户全局目录导致 DCC 内 import 失败。
@@ -197,61 +248,34 @@ def install_debugpy(python_path: str, pip_index_url: str = ""):
         try:
             exit_code, output = _run_pip_elevated(cmd)
         except RuntimeError as e:
-            raise RuntimeError(f"[ERROR] install_debugpy: UAC elevation failed (user may have cancelled): {e}")
+            raise RuntimeError(
+                "[ERROR] install_debugpy: UAC elevation failed (user may have cancelled): {0}".format(e)
+            )
         _safe_console_write(output)
         if exit_code != 0:
-            raise subprocess.CalledProcessError(exit_code, cmd, output, "")
+            raise subprocess.CalledProcessError(exit_code, cmd)
         return output
 
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace')
-        # 强制 UTF-8 解码 + errors='replace' 兜底
-        print(f"[DEBUG] install_debugpy: returncode={result.returncode}".encode('utf-8', errors='replace').decode('utf-8'))
-        _safe_console_write(result.stdout)
-        if result.stderr:
-            sys.stderr.write(result.stderr)
+        returncode, stdout, stderr = _run_subprocess(cmd)
+        print("[DEBUG] install_debugpy: returncode={0}".format(returncode))
+        _safe_console_write(stdout)
+        if stderr:
+            sys.stderr.write(stderr)
 
         # The old implementation invoked installation via VSCode plugin calling DCC Python, which required refreshing module cache and appending debugpy path for immediate discovery.
         # Now this function is called directly by `dcc setup`. Since dcc-bridge runs under global Python, this logic is no longer needed.
         # After running `dcc setup`, users launch DCC afterwards, and DCC Python will be able to load debugpy normally.
 
-        # if result.returncode == 0:
-        #     importlib.invalidate_caches()
-        #     print("[DEBUG] install_debugpy: import caches invalidated")
-
-        #     if sys.executable != python_path:
-        #         print("[DEBUG] install_debugpy: sys.executable != python_path, may need to add site-packages to sys.path")
-        #         site_packages_path = os.path.join(os.path.dirname(python_path), '..', 'Lib', 'site-packages')
-        #         if os.path.exists(site_packages_path):
-        #             if site_packages_path not in sys.path:
-        #                 sys.path.insert(0, site_packages_path)
-        #                 print(f"[DEBUG] install_debugpy: added site-packages to sys.path: {site_packages_path}")
-        #         else:
-        #             print("[DEBUG] install_debugpy: trying to find site-packages via pip show")
-        #             try:
-        #                 show_result = subprocess.run(
-        #                     [python_path, "-m", "pip", "show", "debugpy"],
-        #                     capture_output=True, text=True
-        #                 )
-        #                 for line in show_result.stdout.split('\n'):
-        #                     if line.startswith('Location:'):
-        #                         site_packages_path = line.split(':', 1)[1].strip()
-        #                         if site_packages_path not in sys.path:
-        #                             sys.path.insert(0, site_packages_path)
-        #                             print(f"[DEBUG] install_debugpy: added debugpy location to sys.path: {site_packages_path}")
-        #                         break
-        #             except:
-        #                 print("[DEBUG] install_debugpy: failed to find site-packages via pip show")
-
-        return result.stdout
+        return stdout
     except subprocess.CalledProcessError as e:
-        print(f"[ERROR] install_debugpy failed: {e}")
-        print(f"[ERROR] stdout: {e.stdout}")
-        print(f"[ERROR] stderr: {e.stderr}")
+        print("[ERROR] install_debugpy failed: {0}".format(e))
+        print("[ERROR] stdout: {0}".format(getattr(e, "stdout", "")))
+        print("[ERROR] stderr: {0}".format(getattr(e, "stderr", "")))
         raise
 
 
-def uninstall_debugpy(python_path: str, pip_index_url: str = ""):
+def uninstall_debugpy(python_path, pip_index_url=""):
     if python_path is None:
         return "[ERROR] uninstall_debugpy: python_path is None, cannot uninstall debugpy"
 
@@ -259,8 +283,8 @@ def uninstall_debugpy(python_path: str, pip_index_url: str = ""):
     if pip_index_url:
         cmd.extend(["-i", pip_index_url])
 
-    print(f"[DEBUG] uninstall_debugpy: python_path={python_path}")
-    print(f"[DEBUG] uninstall_debugpy: running: {' '.join(cmd)}")
+    print("[DEBUG] uninstall_debugpy: python_path={0}".format(python_path))
+    print("[DEBUG] uninstall_debugpy: running: {0}".format(" ".join(cmd)))
 
     # 与 install_debugpy 同理：Windows 非管理员进程无法删除受 UAC 保护的
     # DCC site-packages 中的 debugpy，需先提权再卸载。
@@ -269,35 +293,38 @@ def uninstall_debugpy(python_path: str, pip_index_url: str = ""):
         try:
             exit_code, output = _run_pip_elevated(cmd)
         except RuntimeError as e:
-            raise RuntimeError(f"[ERROR] uninstall_debugpy: UAC elevation failed (user may have cancelled): {e}")
+            raise RuntimeError(
+                "[ERROR] uninstall_debugpy: UAC elevation failed (user may have cancelled): {0}".format(e)
+            )
         _safe_console_write(output)
         # pip uninstall 对"未安装"的包返回 0 并提示 Skipping，仍视为成功；
         # 仅当确实卸载失败（且非"未安装"）时才抛出。
         if exit_code != 0 and "not installed" not in output and "Skipping" not in output:
-            raise subprocess.CalledProcessError(exit_code, cmd, output, "")
+            raise subprocess.CalledProcessError(exit_code, cmd)
         return output
 
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace')
-        # 强制 UTF-8 解码 + errors='replace' 兜底
-        print(f"[DEBUG] uninstall_debugpy: returncode={result.returncode}")
-        _safe_console_write(result.stdout)
-        if result.stderr:
-            sys.stderr.write(result.stderr)
-        return result.stdout
+        returncode, stdout, stderr = _run_subprocess(cmd)
+        print("[DEBUG] uninstall_debugpy: returncode={0}".format(returncode))
+        _safe_console_write(stdout)
+        if stderr:
+            sys.stderr.write(stderr)
+        return stdout
     except subprocess.CalledProcessError as e:
         # pip uninstall 对已不存在的包仍返回 0，这里仅在确实失败时提示
-        combined = f"{e.stdout}\n{e.stderr}"
+        combined = "{0}\n{1}".format(
+            getattr(e, "stdout", ""), getattr(e, "stderr", "")
+        )
         if "not installed" in combined or "Skipping" in combined:
-            print("[DEBUG] uninstall_debugpy: debugpy 未安装，跳过".encode('utf-8', errors='replace').decode('utf-8'))
+            print("[DEBUG] uninstall_debugpy: debugpy 未安装，跳过")
             return combined
-        print(f"[ERROR] uninstall_debugpy failed: {e}")
-        print(f"[ERROR] stdout: {e.stdout}")
-        print(f"[ERROR] stderr: {e.stderr}")
+        print("[ERROR] uninstall_debugpy failed: {0}".format(e))
+        print("[ERROR] stdout: {0}".format(getattr(e, "stdout", "")))
+        print("[ERROR] stderr: {0}".format(getattr(e, "stderr", "")))
         raise
 
 
-def start_debugpy_server(port: int, python_path: str, adapter=None) -> bool:
+def start_debugpy_server(port, python_path, adapter=None):
     global _debugpy_listening
 
     if python_path is None:
@@ -307,21 +334,23 @@ def start_debugpy_server(port: int, python_path: str, adapter=None) -> bool:
         return False
 
     if not os.path.exists(python_path):
-        print(f"[WARN] Python executable not found at: {python_path}")
+        print("[WARN] Python executable not found at: {0}".format(python_path))
         return False
     else:
-        print(f"[DEBUG] Python executable exists at: {python_path}")
+        print("[DEBUG] Python executable exists at: {0}".format(python_path))
 
     print(
-        f"[DEBUG] start_debugpy_server called with port={port}, python_path={python_path}"
+        "[DEBUG] start_debugpy_server called with port={0}, python_path={1}".format(
+            port, python_path
+        )
     )
 
     try:
         import debugpy
 
-        print(f"[DEBUG] debugpy imported successfully, version={debugpy.__version__}")
+        print("[DEBUG] debugpy imported successfully, version={0}".format(debugpy.__version__))
     except ImportError as e:
-        print(f"[ERROR] Failed to import debugpy: {e}")
+        print("[ERROR] Failed to import debugpy: {0}".format(e))
         print("[ERROR] Please run install_debugpy first")
         raise
 
@@ -332,7 +361,7 @@ def start_debugpy_server(port: int, python_path: str, adapter=None) -> bool:
             debugpy.configure(python=python_path)
         print("[DEBUG] debugpy.configure() succeeded")
     except Exception as e:
-        print(f"[ERROR] debugpy.configure() failed: {e}")
+        print("[ERROR] debugpy.configure() failed: {0}".format(e))
         raise
 
     # debugpy.listen() 在进程中只能调用一次，重复调用会导致端口占用
@@ -345,18 +374,22 @@ def start_debugpy_server(port: int, python_path: str, adapter=None) -> bool:
         debugpy.listen(port)
         _debugpy_listening = True
         print(
-            f"[DEBUG] debugpy.listen({port}) succeeded, debug server is now listening"
+            "[DEBUG] debugpy.listen({0}) succeeded, debug server is now listening".format(
+                port
+            )
         )
     except RuntimeError as e:
         if "debugpy.listen() has already been called on this process" in str(e):
             print("[DEBUG] debugpy.listen() already called on this process, skipping")
             _debugpy_listening = True
             return True
-        print(f"[ERROR] debugpy.listen() RuntimeError: {e}")
-        raise e
+        print("[ERROR] debugpy.listen() RuntimeError: {0}".format(e))
+        raise
     except Exception as e:
         print(
-            f"[ERROR] debugpy.listen() failed with unexpected error: {type(e).__name__}: {e}"
+            "[ERROR] debugpy.listen() failed with unexpected error: {0}: {1}".format(
+                type(e).__name__, e
+            )
         )
         raise
 

@@ -324,7 +324,7 @@ class TestUnsetup:
 
 class TestMultiVersionSetup:
     def test_setup_all_versions_when_no_version_specified(self, setup_instance, populated_registry, mock_home):
-        """不指定版本时应只为 2021+ 的版本注入脚本（2019 应被跳过）"""
+        """不指定版本时应为 2019+ 的版本注入脚本（2019 在 min 边界内应被注入）"""
         assert setup_instance.setup() is True
         # 2024 应被注入
         script_2024 = (
@@ -332,15 +332,15 @@ class TestMultiVersionSetup:
             / "2024 - 64bit" / "ENU" / "scripts" / "startup" / "dcc_bridge_startup.py"
         )
         assert script_2024.exists()
-        # 2019 应被跳过（低于 min_supported_version）
+        # 2019 现在 min_supported_version=2019，应被注入（不再跳过）
         script_2019 = (
             mock_home / "AppData" / "Local" / "Autodesk" / "3dsMax"
             / "2019 - 64bit" / "ENU" / "scripts" / "startup" / "dcc_bridge_startup.py"
         )
-        assert not script_2019.exists()
+        assert script_2019.exists()
 
     def test_unsetup_all_versions_when_no_version_specified(self, setup_instance, populated_registry, mock_home):
-        """不指定版本时应只移除 2021+ 的版本脚本"""
+        """不指定版本时应移除 2019+ 的版本脚本"""
         setup_instance.setup()
         assert setup_instance.unsetup() is True
         script_2024 = (
@@ -354,7 +354,7 @@ class TestMultiVersionSetup:
         assert setup_instance.setup() is False
 
     def test_explicit_version_below_min_still_works(self, setup_instance, populated_registry, mock_home):
-        """指定 --version 2019 时即使低于 min_supported_version 也应正常注入"""
+        """指定 --version 2019 时（等于 min 边界）也应正常注入（绕过版本过滤）"""
         assert setup_instance.setup("2019") is True
         script_2019 = (
             mock_home / "AppData" / "Local" / "Autodesk" / "3dsMax"
@@ -378,11 +378,18 @@ class TestMultiVersionSetup:
 class TestGetTargetVersions:
     """测试 _get_target_versions 的版本过滤逻辑"""
 
-    def test_filters_below_min_supported(self, setup_instance, populated_registry):
-        """不指定版本时应过滤掉低于 min_supported_version 的版本"""
+    def test_filters_below_min_supported(self, setup_instance, mock_registry):
+        """不指定版本时应过滤掉低于 min_supported_version (2019) 的版本，保留 2019+"""
+        values, subkeys = mock_registry
+        subkeys[MAX_REG_BASE] = ["2018", "2019", "2024"]
+        for ver in ("2018", "2019", "2024"):
+            values[f"{MAX_REG_BASE}\\{ver}"] = {
+                "Installdir": r"C:\Program Files\Autodesk\3ds Max {0}\\".format(ver),
+            }
         versions = setup_instance._get_target_versions()
         assert "2024" in versions
-        assert "2019" not in versions
+        assert "2019" in versions
+        assert "2018" not in versions
 
     def test_explicit_version_not_filtered(self, setup_instance, populated_registry):
         """指定版本时不应用过滤"""
@@ -390,13 +397,43 @@ class TestGetTargetVersions:
         assert versions == ["2019"]
 
     def test_returns_empty_when_all_below_min(self, setup_instance, mock_registry):
-        """所有版本都低于 min_supported_version 时返回空列表"""
+        """所有版本都低于 min_supported_version (2019) 时返回空列表"""
         values, subkeys = mock_registry
-        subkeys[MAX_REG_BASE] = ["19.0"]
-        values[f"{MAX_REG_BASE}\\19.0"] = {
-            "Installdir": r"C:\Program Files\Autodesk\3ds Max 2017\\",
+        subkeys[MAX_REG_BASE] = ["2018"]
+        values[f"{MAX_REG_BASE}\\2018"] = {
+            "Installdir": r"C:\Program Files\Autodesk\3ds Max 2018\\",
         }
         assert setup_instance._get_target_versions() == []
+
+
+# ==================== get_python_path 版本分支 ====================
+
+class TestGetPythonPath:
+    def test_pre_2020_uses_3dsmaxpy_exe(self, setup_instance):
+        """2019 及之前版本应使用 <root>/3dsmaxpy.exe"""
+        setup_instance.get_install_path = lambda v: r"C:\Program Files\Autodesk\3ds Max 2019"
+        assert setup_instance.get_python_path("2019") == (
+            r"C:\Program Files\Autodesk\3ds Max 2019\3dsmaxpy.exe"
+        )
+
+    def test_2020_plus_uses_python_exe(self, setup_instance):
+        """2020 及以上版本应使用 <root>/Python/python.exe"""
+        setup_instance.get_install_path = lambda v: r"C:\Program Files\Autodesk\3ds Max 2024"
+        assert setup_instance.get_python_path("2024") == (
+            r"C:\Program Files\Autodesk\3ds Max 2024\Python\python.exe"
+        )
+
+    def test_2020_boundary_uses_python_exe(self, setup_instance):
+        """2020 边界版本（等于分界线）应使用 Python/python.exe"""
+        setup_instance.get_install_path = lambda v: r"C:\Program Files\Autodesk\3ds Max 2020"
+        assert setup_instance.get_python_path("2020") == (
+            r"C:\Program Files\Autodesk\3ds Max 2020\Python\python.exe"
+        )
+
+    def test_missing_install_path_returns_none(self, setup_instance):
+        """安装路径不存在时返回 None"""
+        setup_instance.get_install_path = lambda v: None
+        assert setup_instance.get_python_path("2019") is None
 
 
 # ==================== get_setup 工厂函数 ====================

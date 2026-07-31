@@ -22,6 +22,7 @@ export interface IDCCDriver {
     connect(): Promise<boolean>;
     disconnect(): void;
     isConnected(): boolean;
+    ping(): Promise<{ success: boolean; pythonVersion?: string } | null>;
     
     executeFile(execFile: string, execOrigin: string, nameVar: string, isDebugging: boolean): Promise<IExecutionResult | null>;
     evaluateFunction(module: string, functionName: string, kwargs?: Record<string, unknown>, discardOutput?: boolean): Promise<IExecutionResult | null>;

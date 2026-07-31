@@ -42,6 +42,18 @@ export async function attach() {
 
     const { port, ...debugConfig } = userDebugConfig;
 
+    // 检测目标 DCC 的 Python 版本：低于 3.0 不支持 debugpy（如 Python 2.7）
+    const pingResult = await driver.ping();
+    if (pingResult && pingResult.pythonVersion) {
+        const majorVersion = parseInt(pingResult.pythonVersion.split('.')[0], 10);
+        if (!isNaN(majorVersion) && majorVersion < 3) {
+            vscode.window.showErrorMessage(
+                `目标 DCC（${driver.dccName}）运行在 Python ${pingResult.pythonVersion}，版本低于 3.0，暂不支持使用 debugpy 进行调试。`
+            );
+            return;
+        }
+    }
+
     const started = await driver.startDebugServer(port);
     if (!started) {
         // debugpy 未安装时会提示用户运行 dcc setup

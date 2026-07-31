@@ -1,8 +1,11 @@
+# -*- coding: utf-8 -*-
 """
 Module for reloading Python modules within the VS Code workspace
-"""
 
-from __future__ import annotations
+兼容 Python 2.7 / 3.x：不使用 from __future__ import annotations、
+list[str] 注解、f-string；time.perf_counter 在 py2 不存在改用 time.time；
+reload 在 py2 用 imp.reload（importlib.reload 在 py2 不存在）。
+"""
 
 import importlib
 import os
@@ -10,9 +13,19 @@ import sys
 import time
 import traceback
 
+if sys.version_info >= (3,):
+    from importlib import reload as _reload_module
+else:
+    from imp import reload as _reload_module
 
-def reload(workspace_folders: list[str]):
-    start_time = time.perf_counter()
+if hasattr(time, "perf_counter"):
+    _now = time.perf_counter
+else:
+    _now = time.time
+
+
+def reload(workspace_folders):
+    start_time = _now()
 
     num_reloads = 0
     num_failed = 0
@@ -31,16 +44,22 @@ def reload(workspace_folders: list[str]):
             continue
 
         try:
-            importlib.reload(variable)
+            _reload_module(variable)
         except Exception:
-            print(f'Failed to reload "{filepath}":\n{traceback.format_exc()}')
+            print(
+                'Failed to reload "{0}":\n{1}'.format(
+                    filepath, traceback.format_exc()
+                )
+            )
             num_failed += 1
             continue
 
         num_reloads += 1
 
-    elapsed_time_ms = round((time.perf_counter() - start_time) * 1000)
+    elapsed_time_ms = round((_now() - start_time) * 1000)
 
     print(
-        f"Reloaded {num_reloads} module{'s' if num_reloads != 1 else ''} in {elapsed_time_ms}ms"
+        "Reloaded {0} module{1} in {2}ms".format(
+            num_reloads, "s" if num_reloads != 1 else "", elapsed_time_ms
+        )
     )

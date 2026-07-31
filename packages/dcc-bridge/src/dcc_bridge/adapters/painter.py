@@ -1,9 +1,11 @@
+# -*- coding: utf-8 -*-
 """
 SubstancePainter Adapter
 实现 SubstancePainter 特定的日志、Python 路径和初始化逻辑
-"""
 
-from __future__ import annotations
+兼容 Python 2.7 / 3.x：不使用 from __future__ import annotations、
+变量注解、f-string、无参 super() 等 py3-only 语法。
+"""
 
 import sys
 import os
@@ -17,31 +19,31 @@ class SubstancePainterLogger(Logger):
     # channel = "SubstancePainter"
 
     @classmethod
-    def info(cls, message: str):
+    def info(cls, message):
         try:
             import substance_painter as sp
 
             sp.logging.log(sp.logging.INFO, cls.channel, message)
         except:
-            super().info(message)
+            super(SubstancePainterLogger, cls).info(message)
 
     @classmethod
-    def warn(cls, message: str):
+    def warn(cls, message):
         try:
             import substance_painter as sp
 
             sp.logging.log(sp.logging.WARNING, cls.channel, message)
         except:
-            super().warn(message)
+            super(SubstancePainterLogger, cls).warn(message)
 
     @classmethod
-    def error(cls, message: str):
+    def error(cls, message):
         try:
             import substance_painter as sp
 
             sp.logging.log(sp.logging.ERROR, cls.channel, message)
         except:
-            super().error(message)
+            super(SubstancePainterLogger, cls).error(message)
 
 
 class SubstancePainterAdapter(DCCAdapter):
@@ -54,22 +56,24 @@ class SubstancePainterAdapter(DCCAdapter):
     - 初始化逻辑
     """
 
-    name: str = "substance_painter"
+    name = "substance_painter"
 
-    def get_logger(self) -> Logger:
+    def get_logger(self):
         return SubstancePainterLogger
 
-    def get_python_path(self) -> str:
+    def get_python_path(self):
         """
         返回 SubstancePainter 的 Python 解释器路径（python.exe）
 
         所有版本的SP的python解析器路径都位于根目录下的: "./resources/pythonsdk/python.exe"
         """
-        exe_dir = os.path.dirname(super().get_python_path())
+        exe_dir = os.path.dirname(
+            super(SubstancePainterAdapter, self).get_python_path()
+        )
         exe_name = "python.exe" if sys.platform == "win32" else "python"
         return os.path.join(exe_dir, "resources", "pythonsdk", exe_name)
 
-    def on_connected(self) -> None:
+    def on_connected(self):
         try:
             import substance_painter.ui as sp_ui
 
@@ -78,18 +82,18 @@ class SubstancePainterAdapter(DCCAdapter):
             logger = self.get_logger()
             logger.error("无法获取主窗口。substance_painter.ui 不可用。")
             return
-        super()._on_connected(parent_window)
+        super(SubstancePainterAdapter, self)._on_connected(parent_window)
 
-    def add_sys_path(self, path: str) -> None:
-        super().add_sys_path(path)
+    def add_sys_path(self, path):
+        super(SubstancePainterAdapter, self).add_sys_path(path)
         logger = self.get_logger()
-        logger.info(f"Added to {self.name} sys.path: {path}")
+        logger.info("Added to {0} sys.path: {1}".format(self.name, path))
 
-    def get_version(self) -> str:
+    def get_version(self):
         try:
             import substance_painter.application as sp_app
 
             version = sp_app.version()
             return version
         except:
-            return super().get_version()
+            return super(SubstancePainterAdapter, self).get_version()

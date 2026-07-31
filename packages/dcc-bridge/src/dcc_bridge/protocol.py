@@ -1,56 +1,52 @@
+# -*- coding: utf-8 -*-
 """
 通信协议模块
 定义请求/响应格式，实现长度前缀编码/解码和 JSON 序列化/反序列化
 
 协议格式: [4字节长度][JSON payload]
 长度前缀使用大端序（big-endian）
-"""
 
-from __future__ import annotations
+兼容 Python 2.7 / 3.x：不使用 f-string、PEP 604 联合类型（X | Y）、
+内置泛型注解（dict[str, ...]）等 py3-only 语法。
+"""
 
 import json
 import struct
-from typing import Any
 
 
 class Request:
     """请求对象"""
 
-    def __init__(self, id: str, method: str, params: dict[str, Any] | None = None):
+    def __init__(self, id, method, params=None):
         self.id = id
         self.method = method
         self.params = params or {}
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self):
         return {"id": self.id, "method": self.method, "params": self.params}
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> Request:
+    def from_dict(cls, data):
         return cls(id=data["id"], method=data["method"], params=data.get("params", {}))
 
 
 class Response:
     """响应对象"""
 
-    def __init__(
-        self,
-        id: str,
-        result: dict[str, Any] | None = None,
-        error: dict[str, Any] | None = None,
-    ):
+    def __init__(self, id, result=None, error=None):
         self.id = id
         self.result = result
         self.error = error
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self):
         return {"id": self.id, "result": self.result, "error": self.error}
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> Response:
+    def from_dict(cls, data):
         return cls(id=data["id"], result=data.get("result"), error=data.get("error"))
 
     @classmethod
-    def success(cls, id: str, output: list | None = None, **kwargs) -> Response:
+    def success(cls, id, output=None, **kwargs):
         result = {"success": True}
         if output:
             result["output"] = output
@@ -58,14 +54,21 @@ class Response:
         return cls(id=id, result=result)
 
     @classmethod
-    def failure(cls, id: str, message: str, traceback: str | None = None) -> Response:
+    def failure(cls, id, message, traceback=None):
         error = {"message": message}
         if traceback:
             error["traceback"] = traceback
         return cls(id=id, error=error)
 
 
-def encode_message(data: dict[str, Any] | Request | Response) -> bytes:
+def _to_bytes(s):
+    """把 JSON 字符串统一转成 bytes，兼容 py2（str 即 bytes）与 py3。"""
+    if isinstance(s, bytes):
+        return s
+    return s.encode("utf-8")
+
+
+def encode_message(data):
     """
     将数据编码为协议格式的字节串
 
@@ -76,10 +79,14 @@ def encode_message(data: dict[str, Any] | Request | Response) -> bytes:
         编码后的字节串：[4字节长度][JSON payload]
     """
     if isinstance(data, (Request, Response)):
-        data = data.to_dict()
+        payload = data.to_dict()
+    else:
+        payload = data
 
-    json_str = json.dumps(data, ensure_ascii=False)
-    json_bytes = json_str.encode("utf-8")
+    # ensure_ascii=False 让中文等直接以 UTF-8 多字节输出；py2 下 json.dumps
+    # 返回 str(bytes)，py3 下返回 str(unicode)，统一由 _to_bytes 归一为 bytes。
+    json_str = json.dumps(payload, ensure_ascii=False)
+    json_bytes = _to_bytes(json_str)
 
     length = len(json_bytes)
     length_bytes = struct.pack(">I", length)
@@ -87,7 +94,7 @@ def encode_message(data: dict[str, Any] | Request | Response) -> bytes:
     return length_bytes + json_bytes
 
 
-def decode_message(data: bytes) -> Request | Response | None:
+def decode_message(data):
     """
     从字节串解码出请求或响应对象
 
@@ -110,7 +117,8 @@ def decode_message(data: bytes) -> Request | Response | None:
     try:
         json_str = json_bytes.decode("utf-8")
         data_dict = json.loads(json_str)
-    except (UnicodeDecodeError, json.JSONDecodeError):
+    except (UnicodeDecodeError, ValueError):
+        # py2 中 JSONDecodeError 不存在，json.loads 失败抛 ValueError
         return None
 
     if "method" in data_dict:
@@ -119,7 +127,7 @@ def decode_message(data: bytes) -> Request | Response | None:
         return Response.from_dict(data_dict)
 
 
-def decode_raw(data: bytes) -> dict[str, Any] | None:
+def decode_raw(data):
     """
     从字节串解码出原始字典
 
@@ -132,6 +140,10 @@ def decode_raw(data: bytes) -> dict[str, Any] | None:
     if len(data) < 4:
         return None
 
+    # 兼容 py2/py3：调用方可能传入 str（py2 即 bytes）或 bytes（py3）。
+    if not isinstance(data, bytes):
+        data = _to_bytes(data)
+
     length = struct.unpack(">I", data[:4])[0]
 
     if len(data) < 4 + length:
@@ -142,5 +154,5 @@ def decode_raw(data: bytes) -> dict[str, Any] | None:
     try:
         json_str = json_bytes.decode("utf-8")
         return json.loads(json_str)
-    except (UnicodeDecodeError, json.JSONDecodeError):
+    except (UnicodeDecodeError, ValueError):
         return None

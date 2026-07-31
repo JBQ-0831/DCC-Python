@@ -1,12 +1,14 @@
+# -*- coding: utf-8 -*-
 """
 Blender Adapter
 实现 Blender 特定的日志、Python 路径和初始化逻辑。
 
 注意：Blender 的 UI 不是 Qt 框架（无 PySide/PySide2 嵌入的主窗口），
 因此 on_connected 只做日志输出，不尝试弹出 PySide 消息框。
-"""
 
-from __future__ import annotations
+兼容 Python 2.7 / 3.x：不使用 from __future__ import annotations、
+变量注解、f-string、无参 super() 等 py3-only 语法。
+"""
 
 import sys
 import os
@@ -20,16 +22,16 @@ class BlenderLogger(Logger):
     channel = "Blender"
 
     @classmethod
-    def info(cls, message: str):
-        super().info(message)
+    def info(cls, message):
+        super(BlenderLogger, cls).info(message)
 
     @classmethod
-    def warn(cls, message: str):
-        super().warn(message)
+    def warn(cls, message):
+        super(BlenderLogger, cls).warn(message)
 
     @classmethod
-    def error(cls, message: str):
-        super().error(message)
+    def error(cls, message):
+        super(BlenderLogger, cls).error(message)
 
 
 class BlenderAdapter(DCCAdapter):
@@ -42,12 +44,12 @@ class BlenderAdapter(DCCAdapter):
     - 连接初始化（Blender 无 Qt 主窗口，仅日志）
     """
 
-    name: str = "blender"
+    name = "blender"
 
-    def get_logger(self) -> Logger:
+    def get_logger(self):
         return BlenderLogger
 
-    def get_python_path(self) -> str:
+    def get_python_path(self):
         """
         返回 Blender 内置的 Python 解释器路径
 
@@ -71,9 +73,9 @@ class BlenderAdapter(DCCAdapter):
                 )
         except Exception:
             pass
-        return super().get_python_path()
+        return super(BlenderAdapter, self).get_python_path()
 
-    def on_connected(self) -> None:
+    def on_connected(self):
         """
         连接建立后的回调
 
@@ -113,15 +115,15 @@ class BlenderAdapter(DCCAdapter):
             raise error[0]
         return result[0] if result else None
 
-    def add_sys_path(self, path: str) -> None:
-        super().add_sys_path(path)
+    def add_sys_path(self, path):
+        super(BlenderAdapter, self).add_sys_path(path)
         logger = self.get_logger()
-        logger.info(f"Added to {self.name} sys.path: {path}")
+        logger.info("Added to {0} sys.path: {1}".format(self.name, path))
 
-    def get_version(self) -> str:
+    def get_version(self):
         try:
             import bpy
 
             return bpy.app.version_string
         except Exception:
-            return super().get_version()
+            return super(BlenderAdapter, self).get_version()

@@ -1,12 +1,14 @@
+# -*- coding: utf-8 -*-
 """
 通用 TCP 客户端，用于 CLI 和外部工具直连 DCC 服务。
-"""
 
-from __future__ import annotations
+兼容 Python 2.7 / 3.x：不使用 f-string、PEP 604 联合类型、内置泛型注解、
+无参 super()、异常链（raise ... from e）、OSError（改用 socket.error）等
+py3-only 语法。
+"""
 
 import socket
 import uuid
-from typing import Any
 
 from .protocol import Request, Response, decode_message, encode_message
 
@@ -22,26 +24,29 @@ class DCCClient:
     通过长度前缀 + JSON 协议与 DCC 端服务通信。
     """
 
-    def __init__(
-        self, host: str = "127.0.0.1", port: int = 7002, timeout: float = 30.0
-    ):
+    def __init__(self, host="127.0.0.1", port=7002, timeout=30.0):
         self.host = host
         self.port = port
         self.timeout = timeout
-        self._socket: socket.socket | None = None
+        self._socket = None
 
-    def connect(self) -> None:
+    def connect(self):
         """建立到 DCC 服务的连接"""
         try:
             self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self._socket.settimeout(self.timeout)
             self._socket.connect((self.host, self.port))
-        except OSError as e:
+        except socket.error as e:
             raise DCCClientError(
-                f"Failed to connect to DCC at {self.host}:{self.port}: {e}"
-            ) from e
+                "Failed to connect to DCC at "
+                + str(self.host)
+                + ":"
+                + str(self.port)
+                + ": "
+                + str(e)
+            )
 
-    def disconnect(self) -> None:
+    def disconnect(self):
         """断开连接"""
         if self._socket:
             try:
@@ -51,14 +56,14 @@ class DCCClient:
             finally:
                 self._socket = None
 
-    def __enter__(self) -> DCCClient:
+    def __enter__(self):
         self.connect()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(self, exc_type, exc_val, exc_tb):
         self.disconnect()
 
-    def _send_request(self, method: str, params: dict[str, Any]) -> Response:
+    def _send_request(self, method, params):
         """发送请求并等待响应"""
         if not self._socket:
             raise DCCClientError("Not connected to DCC service")
@@ -66,8 +71,8 @@ class DCCClient:
         request = Request(id=str(uuid.uuid4()), method=method, params=params)
         try:
             self._socket.sendall(encode_message(request))
-        except OSError as e:
-            raise DCCClientError(f"Failed to send request: {e}") from e
+        except socket.error as e:
+            raise DCCClientError("Failed to send request: " + str(e))
 
         buffer = b""
         while True:
@@ -75,8 +80,8 @@ class DCCClient:
                 data = self._socket.recv(4096)
             except socket.timeout:
                 raise DCCClientError("Timeout waiting for response")
-            except OSError as e:
-                raise DCCClientError(f"Error receiving response: {e}") from e
+            except socket.error as e:
+                raise DCCClientError("Error receiving response: " + str(e))
 
             if not data:
                 raise DCCClientError("Connection closed before response received")
@@ -86,12 +91,7 @@ class DCCClient:
             if response is not None:
                 return response
 
-    def execute_file(
-        self,
-        file_path: str,
-        exec_origin: str | None = None,
-        name_var: str = "__main__",
-    ) -> Response:
+    def execute_file(self, file_path, exec_origin=None, name_var="__main__"):
         """请求 DCC 执行本地文件"""
         exec_origin = exec_origin or file_path
         return self._send_request(
@@ -104,7 +104,7 @@ class DCCClient:
             },
         )
 
-    def execute_code(self, source: str, exec_origin: str = "<dcc>") -> Response:
+    def execute_code(self, source, exec_origin="<dcc>"):
         """请求 DCC 执行代码字符串"""
         return self._send_request(
             "execute",
@@ -117,7 +117,7 @@ class DCCClient:
             },
         )
 
-    def reload_modules(self, workspace_folders: list[str]) -> Response:
+    def reload_modules(self, workspace_folders):
         """请求 DCC 重载工作区模块"""
         return self._send_request(
             "reload",
@@ -126,24 +126,22 @@ class DCCClient:
             },
         )
 
-    def start_debugpy(self, port: int, python_path: str | None = None) -> Response:
+    def start_debugpy(self, port, python_path=None):
         """请求 DCC 启动 debugpy 服务"""
-        params: dict[str, Any] = {"port": port}
+        params = {"port": port}
         if python_path:
             params["python_path"] = python_path
         return self._send_request("start_debugpy", params)
 
-    def install_debugpy(
-        self, python_path: str | None = None, pip_index_url: str = ""
-    ) -> Response:
+    def install_debugpy(self, python_path=None, pip_index_url=""):
         """请求 DCC 安装 debugpy"""
-        params: dict[str, Any] = {"pip_index_url": pip_index_url}
+        params = {"pip_index_url": pip_index_url}
         if python_path:
             params["python_path"] = python_path
         return self._send_request("install_debugpy", params)
 
-    def ping(self) -> dict[str, Any]:
-        """简单 ping，返回服务端基础信息"""
+    def ping(self):
+        """简单 ping，返回服务端基础信息（含 python_version）"""
         response = self._send_request("ping", {})
         if response.error:
             raise DCCClientError(response.error.get("message", "Unknown error"))
@@ -151,12 +149,12 @@ class DCCClient:
 
 
 def resolve_client(
-    dcc_name: str | None = None,
-    port: int | None = None,
-    version: str | None = None,
-    host: str = "127.0.0.1",
-    timeout: float = 30.0,
-) -> DCCClient:
+    dcc_name=None,
+    port=None,
+    version=None,
+    host="127.0.0.1",
+    timeout=30.0,
+):
     """
     根据 dcc_name / port / version 自动解析目标并创建 DCCClient。
 
@@ -190,9 +188,9 @@ def resolve_client(
     if not instances:
         msg = "No running DCC instance found"
         if dcc_name:
-            msg += f" for type '{dcc_name}'"
+            msg += " for type '" + str(dcc_name) + "'"
         if version:
-            msg += f" version '{version}'"
+            msg += " version '" + str(version) + "'"
         msg += ". Please start the DCC and ensure the bridge server is running."
         raise DCCClientError(msg)
 
@@ -200,7 +198,11 @@ def resolve_client(
         raise DCCClientError(
             "Multiple DCC instances found: "
             + ", ".join(
-                f"{i.get('dcc_name')}:{i.get('dcc_version', '?')}:{i.get('port')}"
+                "{dcc}:{ver}:{port}".format(
+                    dcc=i.get("dcc_name"),
+                    ver=i.get("dcc_version", "?"),
+                    port=i.get("port"),
+                )
                 for i in instances
             )
             + ". Please specify --port, --dcc-name, or --version."

@@ -38,8 +38,8 @@ class MaxSetup(DCCSetup):
     """
 
     dcc_name = "3dsmax"
-    # 仅支持 2021+ 的 3ds Max
-    min_supported_version = "2021"
+    # 仅支持 2019+ 的 3ds Max
+    min_supported_version = "2019"
 
     def discover_versions(self) -> list[str]:
         """从注册表扫描已安装的 3ds Max 版本号（年份）"""
@@ -102,8 +102,15 @@ class MaxSetup(DCCSetup):
         )
 
     def get_python_path(self, version: str) -> str | None:
-        """返回 3ds Max 指定版本的 Python 解释器路径（2021+ 为 Python/python.exe）"""
+        """返回 3ds Max 指定版本的 Python 解释器路径
+
+        2020 之前的版本（2017-2019）Python 解析器位于 <max root>/3dsmaxpy.exe；
+        2020 及以上版本位于 <max root>/Python/python.exe。
+        """
         install_path = self.get_install_path(version)
-        if install_path:
-            return os.path.join(install_path, "Python", "python.exe")
-        return None
+        if not install_path:
+            return None
+        # 2020 之前版本使用 3dsmaxpy.exe，2020+ 使用 Python/python.exe
+        if int(version) < 2020:
+            return os.path.join(install_path, "3dsmaxpy.exe")
+        return os.path.join(install_path, "Python", "python.exe")

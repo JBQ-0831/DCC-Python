@@ -17,7 +17,7 @@ import pytest
 
 from dcc_bridge.adapters.base import DCCAdapter
 from dcc_bridge.protocol import Request, Response, decode_message, encode_message
-from dcc_bridge.server import RequestHandler, SocketServerThread
+from dcc_bridge.server import ThreadRequestHandler, SocketServerThread
 
 
 class _NullLogger:
@@ -86,8 +86,8 @@ class TestServerIsQtFree:
         assert issubclass(SocketServerThread, threading.Thread)
 
     def test_request_handler_not_qobject(self):
-        # 重构后 RequestHandler 不应再继承 Qt 的 QObject
-        handler = RequestHandler(_FakeAdapter())
+        # 重构后非 Qt 请求处理器不应继承 QObject（无 Signal / metaObject）
+        handler = ThreadRequestHandler(_FakeAdapter())
         assert not hasattr(handler, "execute_request")
         assert not hasattr(handler, "metaObject")
 
@@ -108,6 +108,9 @@ class TestServerEndToEnd:
         assert resp.result.get("dcc_name") == "testdcc"
         assert resp.result.get("python_path") == "python"
         assert resp.result.get("output") == ["pong"]
+        # T3: ping 响应必须携带 python_version，供 VSCode 端(T8)做 debugpy 版本门控
+        assert "python_version" in resp.result
+        assert resp.result.get("python_version")
 
     def test_unknown_method_returns_failure(self):
         port = _find_free_port()

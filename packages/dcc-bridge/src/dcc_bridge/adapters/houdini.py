@@ -1,14 +1,21 @@
+# -*- coding: utf-8 -*-
 """
 Houdini Adapter
 实现 Houdini 特定的日志、Python 路径和初始化逻辑
-"""
 
-from __future__ import annotations
+兼容 Python 2.7 / 3.x：不使用 from __future__ import annotations、
+变量注解、f-string、无参 super() 等 py3-only 语法；
+queue 模块在 py2 名为 Queue，做兼容导入。
+"""
 
 import os
 import sys
 import threading
-import queue
+
+try:
+    import queue
+except ImportError:
+    import Queue as queue  # py2 兼容
 
 from dcc_bridge.adapters.base import DCCAdapter, Logger
 
@@ -23,16 +30,16 @@ class HoudiniLogger(Logger):
     # channel = "Houdini"
 
     @classmethod
-    def info(cls, message: str):
-        super().info(message)
+    def info(cls, message):
+        super(HoudiniLogger, cls).info(message)
 
     @classmethod
-    def warn(cls, message: str):
-        super().warn(message)
+    def warn(cls, message):
+        super(HoudiniLogger, cls).warn(message)
 
     @classmethod
-    def error(cls, message: str):
-        super().error(message)
+    def error(cls, message):
+        super(HoudiniLogger, cls).error(message)
 
 
 class HoudiniAdapter(DCCAdapter):
@@ -45,7 +52,7 @@ class HoudiniAdapter(DCCAdapter):
     - 初始化逻辑（定位 Qt 主窗口）
     """
 
-    name: str = "houdini"
+    name = "houdini"
 
     # 主线程派发队列与一次性事件循环回调（避免每请求注册导致的永久累积/死循环）
     _main_thread_queue = queue.Queue()
@@ -53,7 +60,7 @@ class HoudiniAdapter(DCCAdapter):
     _loop_callback_lock = threading.Lock()
 
     def __init__(self):
-        super().__init__()
+        super(HoudiniAdapter, self).__init__()
         self._ensure_event_loop_callback()
 
     def _ensure_event_loop_callback(self):
@@ -88,16 +95,18 @@ class HoudiniAdapter(DCCAdapter):
     def run_on_main_thread(self, callback, *args, **kwargs):
         """通过一次性注册的事件循环回调把回调派发到 Houdini 主线程。"""
         done_event = threading.Event()
-        HoudiniAdapter._main_thread_queue.put((callback, args, kwargs, done_event))
+        HoudiniAdapter._main_thread_queue.put(
+            (callback, args, kwargs, done_event)
+        )
         if HoudiniAdapter._loop_callback_ref is None:
             self._ensure_event_loop_callback()
         done_event.wait(timeout=60.0)
         return None
 
-    def get_logger(self) -> Logger:
+    def get_logger(self):
         return HoudiniLogger
 
-    def get_python_path(self) -> str:
+    def get_python_path(self):
         """
         返回 Houdini 内置的 Python 解释器路径
 
@@ -107,7 +116,7 @@ class HoudiniAdapter(DCCAdapter):
         exe_name = "python.exe" if sys.platform == "win32" else "python"
         return os.path.join(sys.prefix, exe_name)
 
-    def on_connected(self) -> None:
+    def on_connected(self):
         try:
             import hou
 
@@ -116,17 +125,17 @@ class HoudiniAdapter(DCCAdapter):
             logger = self.get_logger()
             logger.error("无法获取主窗口。hou.qt.mainWindow() 不可用。")
             return
-        super()._on_connected(parent_window)
+        super(HoudiniAdapter, self)._on_connected(parent_window)
 
-    def add_sys_path(self, path: str) -> None:
-        super().add_sys_path(path)
+    def add_sys_path(self, path):
+        super(HoudiniAdapter, self).add_sys_path(path)
         logger = self.get_logger()
-        logger.info(f"Added to {self.name} sys.path: {path}")
+        logger.info("Added to {0} sys.path: {1}".format(self.name, path))
 
-    def get_version(self) -> str:
+    def get_version(self):
         try:
             import hou
 
             return hou.applicationVersionString()
         except Exception:
-            return super().get_version()
+            return super(HoudiniAdapter, self).get_version()

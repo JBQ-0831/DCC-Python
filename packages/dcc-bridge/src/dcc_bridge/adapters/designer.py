@@ -1,9 +1,11 @@
+# -*- coding: utf-8 -*-
 """
 SubstanceDesigner Adapter
 实现 SubstanceDesigner 特定的日志、Python 路径和初始化逻辑
-"""
 
-from __future__ import annotations
+兼容 Python 2.7 / 3.x：不使用 from __future__ import annotations、
+变量注解、f-string、无参 super() 等 py3-only 语法。
+"""
 
 import sys
 import os
@@ -17,16 +19,16 @@ class SubstanceDesignerLogger(Logger):
     # channel = "SubstanceDesigner"
 
     @classmethod
-    def info(cls, message: str):
-        super().info(message)
+    def info(cls, message):
+        super(SubstanceDesignerLogger, cls).info(message)
 
     @classmethod
-    def warn(cls, message: str):
-        super().warn(message)
+    def warn(cls, message):
+        super(SubstanceDesignerLogger, cls).warn(message)
 
     @classmethod
-    def error(cls, message: str):
-        super().error(message)
+    def error(cls, message):
+        super(SubstanceDesignerLogger, cls).error(message)
 
 
 class SubstanceDesignerAdapter(DCCAdapter):
@@ -39,22 +41,24 @@ class SubstanceDesignerAdapter(DCCAdapter):
     - 初始化逻辑
     """
 
-    name: str = "substance_designer"
+    name = "substance_designer"
 
-    def get_logger(self) -> Logger:
+    def get_logger(self):
         return SubstanceDesignerLogger
 
-    def get_python_path(self) -> str:
+    def get_python_path(self):
         """
         返回 SubstanceDesigner 的 Python 解释器路径（python.exe）
 
-        所有版本的SP的python解析器路径都位于根目录下的: "./plugins/pythonsdk/python.exe"
+        所有版本的SD的python解析器路径都位于根目录下的: "./plugins/pythonsdk/python.exe"
         """
-        exe_dir = os.path.dirname(super().get_python_path())
+        exe_dir = os.path.dirname(
+            super(SubstanceDesignerAdapter, self).get_python_path()
+        )
         exe_name = "python.exe" if sys.platform == "win32" else "python"
         return os.path.join(exe_dir, "plugins", "pythonsdk", exe_name)
 
-    def on_connected(self) -> None:
+    def on_connected(self):
         try:
             import sd
 
@@ -76,14 +80,14 @@ class SubstanceDesignerAdapter(DCCAdapter):
             logger = self.get_logger()
             logger.error("无法获取主窗口。substance_designer.ui 不可用。")
             return
-        super()._on_connected(parent_window)
+        super(SubstanceDesignerAdapter, self)._on_connected(parent_window)
 
-    def add_sys_path(self, path: str) -> None:
-        super().add_sys_path(path)
+    def add_sys_path(self, path):
+        super(SubstanceDesignerAdapter, self).add_sys_path(path)
         logger = self.get_logger()
-        logger.info(f"Added to {self.name} sys.path: {path}")
+        logger.info("Added to {0} sys.path: {1}".format(self.name, path))
 
-    def get_version(self) -> str:
+    def get_version(self):
         try:
             import sd
 
@@ -92,9 +96,9 @@ class SubstanceDesignerAdapter(DCCAdapter):
             version = app.getVersion()
             return version
         except:
-            return super().get_version()
+            return super(SubstanceDesignerAdapter, self).get_version()
 
-    def configure_debugpy(self, python_path: str) -> None:
+    def configure_debugpy(self, python_path):
         """
             SD 内置 Python 是打包冻结版（frozen modules），
             debugpy 默认校验源码文件一致性，冻结内置库会触发断点失效警告，

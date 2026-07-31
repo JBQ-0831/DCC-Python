@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 通用 TCP 服务端模块
 
@@ -9,9 +10,11 @@
 
 Houdini / Blender 下本模块绝不 import PySide，避免 Houdini 进程内双 Qt 库 ABI
 冲突导致的崩溃。无论哪种方式，客户端发来的代码都保证在 DCC 主线程执行。
-"""
 
-from __future__ import annotations
+兼容 Python 2.7 / 3.x：不使用 f-string、PEP 604 联合类型（X | Y）、
+内置泛型注解（dict[str, ...]）、无参 super()、Thread(daemon=) 构造参数等
+py3-only 语法。
+"""
 
 import io
 import socket
@@ -21,12 +24,6 @@ import threading
 import traceback
 
 from .protocol import Request, Response, decode_message, encode_message
-
-# Qt 采用「延迟导入」：仅在使用 Signal 派发的 DCC（Maya/Max/SP/SD）真正需要时才
-# import PySide（在 _create_qt_request_handler 中）。Houdini / Blender 走
-# adapter.run_on_main_thread 分支，绝不 import PySide，从而避免 Houdini 进程内加载到
-# 与自带 Qt 不同版本的 PySide 导致的崩溃（双 Qt 库 ABI 冲突，典型表现为 QThread.start()
-# 直接 segfault）。
 
 
 class _RequestHandlerBase:
@@ -43,16 +40,16 @@ class _RequestHandlerBase:
         self.logger = adapter.get_logger()
         # 协作式调用下一基类（Qt 环境为 QObject，非 Qt 环境为 object），
         # 确保多重继承链上所有 __init__ 都被正确调用。
-        super().__init__()
+        super(_RequestHandlerBase, self).__init__()
 
-    def handle(self, conn, request_data: dict, done_event):
+    def handle(self, conn, request_data, done_event):
         try:
             request = Request.from_dict(request_data)
         except Exception as e:
-            self.logger.error(f"Failed to parse request: {e}")
+            self.logger.error("Failed to parse request: " + str(e))
             try:
                 response = Response.failure(
-                    id="unknown", message=f"Invalid request: {e}"
+                    id="unknown", message="Invalid request: " + str(e)
                 )
                 conn.send(encode_message(response))
             except Exception:
@@ -64,7 +61,7 @@ class _RequestHandlerBase:
         try:
             response = self._process_request(request)
         except Exception as e:
-            self.logger.error(f"Error processing request: {e}")
+            self.logger.error("Error processing request: " + str(e))
             self.logger.error(traceback.format_exc())
             response = Response.failure(
                 id=request.id, message=str(e), traceback=traceback.format_exc()
@@ -73,11 +70,11 @@ class _RequestHandlerBase:
         try:
             conn.send(encode_message(response))
         except Exception as e:
-            self.logger.error(f"Failed to send response: {e}")
+            self.logger.error("Failed to send response: " + str(e))
         finally:
             done_event.set()
 
-    def _process_request(self, request: Request) -> Response:
+    def _process_request(self, request):
         method = request.method
         params = request.params
 
@@ -130,7 +127,10 @@ class _RequestHandlerBase:
                         params.get("python_path") or self.adapter.get_python_path()
                     )
                     self.logger.info(
-                        f"[DEBUG] Handling start_debugpy: port={port}, python_path={python_path}"
+                        "[DEBUG] Handling start_debugpy: port="
+                        + str(port)
+                        + ", python_path="
+                        + str(python_path)
                     )
                     try:
                         from .debug import start_debugpy_server
@@ -140,16 +140,22 @@ class _RequestHandlerBase:
                         )
                     except Exception as import_err:
                         self.logger.error(
-                            f"[ERROR] Failed to import start_debugpy_server: {import_err}"
+                            "[ERROR] Failed to import start_debugpy_server: "
+                            + str(import_err)
                         )
                         self.logger.error(traceback.format_exc())
                         raise
                     result = start_debugpy_server(port, python_path, self.adapter)
-                    self.logger.info(f"[DEBUG] start_debugpy_server returned: {result}")
+                    self.logger.info(
+                        "[DEBUG] start_debugpy_server returned: " + str(result)
+                    )
 
                     debug_logs = [
-                        f"[DEBUG] Handling start_debugpy: port={port}, python_path={python_path}",
-                        f"[DEBUG] start_debugpy_server returned: {result}",
+                        "[DEBUG] Handling start_debugpy: port="
+                        + str(port)
+                        + ", python_path="
+                        + str(python_path),
+                        "[DEBUG] start_debugpy_server returned: " + str(result),
                     ]
                     return Response.success(id=request.id, output=debug_logs)
                 finally:
@@ -165,8 +171,10 @@ class _RequestHandlerBase:
                 )
                 pip_index_url = params.get("pip_index_url", "")
                 self.logger.info(
-                    f"[DEBUG] Handling install_debugpy: python_path={python_path}, "
-                    f"pip_index_url={pip_index_url}"
+                    "[DEBUG] Handling install_debugpy: python_path="
+                    + str(python_path)
+                    + ", pip_index_url="
+                    + str(pip_index_url)
                 )
                 from .debug import install_debugpy
 
@@ -191,17 +199,20 @@ class _RequestHandlerBase:
                 self.adapter.add_sys_path(path)
 
             elif method == "ping":
-                # 健康检查，返回服务端基本信息
+                # 健康检查，返回服务端基本信息（含 Python 版本供外部检测）
                 return Response.success(
                     id=request.id,
                     output=["pong"],
                     dcc_name=self.adapter.name,
                     python_path=self.adapter.get_python_path(),
+                    python_version=".".join(
+                        [str(x) for x in sys.version_info[:3]]
+                    ),
                 )
 
             else:
                 return Response.failure(
-                    id=request.id, message=f"Unknown method: {method}"
+                    id=request.id, message="Unknown method: " + str(method)
                 )
 
             output = captured.getvalue().strip()
@@ -211,8 +222,8 @@ class _RequestHandlerBase:
 
         except Exception as e:
             error_detail = traceback.format_exc()
-            self.logger.error(f"Execution failed: {e}")
-            self.logger.error(f"Error detail: {error_detail}")
+            self.logger.error("Execution failed: " + str(e))
+            self.logger.error("Error detail: " + str(error_detail))
             return Response.failure(
                 id=request.id, message=str(e), traceback=error_detail
             )
@@ -243,7 +254,7 @@ def _create_qt_request_handler(adapter):
         """Signal: (connection_object, request_dict, done_event)"""
 
         def __init__(self, adapter):
-            super().__init__(adapter)
+            super(_QtRequestHandler, self).__init__(adapter)
             self.execute_request.connect(self.handle)
 
     return _QtRequestHandler(adapter)
@@ -271,12 +282,14 @@ class SocketServerThread(threading.Thread):
     def __init__(
         self,
         adapter,
-        port: int = 7002,
-        host: str = "127.0.0.1",
-        dcc_type: str = "unknown",
-        use_qt_signal: bool = False,
+        port=7002,
+        host="127.0.0.1",
+        dcc_type="unknown",
+        use_qt_signal=False,
     ):
-        super().__init__(daemon=True)
+        # py2.7 的 threading.Thread 不支持 daemon= 构造参数，必须创建后赋值。
+        super(SocketServerThread, self).__init__()
+        self.daemon = True
         self.port = port
         self.host = host
         self.adapter = adapter
@@ -308,26 +321,32 @@ class SocketServerThread(threading.Thread):
             self.server_socket.listen(5)
             self.server_socket.settimeout(1.0)
 
-            self._log(f"Server started, listening on {self.host}:{self.port}")
+            self._log(
+                "Server started, listening on "
+                + str(self.host)
+                + ":"
+                + str(self.port)
+            )
             self._log("Waiting for connections...")
 
             while self.running:
                 try:
                     conn, addr = self.server_socket.accept()
                     # 每个客户端连接用独立后台线程处理，支持长连接多次请求
-                    threading.Thread(
+                    t = threading.Thread(
                         target=self._handle_client,
                         args=(conn, addr),
-                        daemon=True,
-                    ).start()
+                    )
+                    t.daemon = True
+                    t.start()
                 except socket.timeout:
                     continue
                 except Exception as e:
                     if self.running:
-                        self._log(f"Error accepting connection: {e}")
+                        self._log("Error accepting connection: " + str(e))
 
         except Exception as e:
-            self._log(f"Failed to start server: {e}")
+            self._log("Failed to start server: " + str(e))
         finally:
             self._cleanup()
             self._log("Server stopped")
@@ -337,7 +356,7 @@ class SocketServerThread(threading.Thread):
             # 长连接模式：较长超时，支持多次请求
             conn.settimeout(300.0)
             buffer = b""
-            self._log(f"Client {addr} connected (persistent mode)")
+            self._log("Client " + str(addr) + " connected (persistent mode)")
 
             while self.running:
                 try:
@@ -387,14 +406,15 @@ class SocketServerThread(threading.Thread):
                 except socket.timeout:
                     # 长连接超时，检查是否仍在运行
                     continue
-                except ConnectionResetError:
-                    self._log(f"Client {addr} disconnected")
+                except socket.error:
+                    # py2 下连接重置抛 socket.error（ConnectionResetError 在 py2 不存在）
+                    self._log("Client " + str(addr) + " disconnected")
                     break
                 except Exception as e:
-                    self._log(f"Error handling client {addr}: {e}")
+                    self._log("Error handling client " + str(addr) + ": " + str(e))
                     break
         except Exception as e:
-            self._log(f"Error in client handler: {e}")
+            self._log("Error in client handler: " + str(e))
         finally:
             try:
                 conn.close()
@@ -406,7 +426,7 @@ class SocketServerThread(threading.Thread):
             try:
                 self.server_socket.close()
             except Exception as e:
-                self._log(f"Error closing server: {e}")
+                self._log("Error closing server: " + str(e))
             finally:
                 self.server_socket = None
 
@@ -423,9 +443,9 @@ class SocketServerThread(threading.Thread):
         except Exception:
             pass
 
-    def is_running(self) -> bool:
+    def is_running(self):
         return self.running and self.is_alive()
 
-    def _log(self, message: str):
+    def _log(self, message):
         if self.logger:
             self.logger.info(message)

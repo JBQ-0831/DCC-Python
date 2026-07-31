@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 DCC 适配器包
 
@@ -7,9 +8,9 @@ DCC 适配器包
 - painter: SubstancePainterAdapter
 - houdini: HoudiniAdapter
 - blender: BlenderAdapter
-"""
 
-from __future__ import annotations
+兼容 Python 2.7 / 3.x：不使用 from __future__ import annotations。
+"""
 
 from .base import DCCAdapter, Logger
 from .maya import MayaAdapter

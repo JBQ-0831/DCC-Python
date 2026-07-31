@@ -1,13 +1,14 @@
+# -*- coding: utf-8 -*-
 """
 DCC Adapter 基类
 所有 DCC Adapter 都应继承此类并实现特定逻辑
-"""
 
-from __future__ import annotations
+兼容 Python 2.7 / 3.x：不使用 from __future__ import annotations、
+变量注解（name: str = ...）、f-string、无参 super() 等 py3-only 语法。
+"""
 
 import sys
 import os
-from typing import Optional
 
 
 class Logger:
@@ -16,16 +17,16 @@ class Logger:
     channel = "DCC Bridge"
 
     @classmethod
-    def info(cls, message: str):
-        print(f"[INFO] {cls.channel}: {message}")
+    def info(cls, message):
+        print("[INFO] {0}: {1}".format(cls.channel, message))
 
     @classmethod
-    def warn(cls, message: str):
-        print(f"[WARN] {cls.channel}: {message}")
+    def warn(cls, message):
+        print("[WARN] {0}: {1}".format(cls.channel, message))
 
     @classmethod
-    def error(cls, message: str):
-        print(f"[ERROR] {cls.channel}: {message}")
+    def error(cls, message):
+        print("[ERROR] {0}: {1}".format(cls.channel, message))
 
 
 class DCCAdapter:
@@ -36,14 +37,14 @@ class DCCAdapter:
     基类提供默认实现，确保服务端可以正常运行。
     """
 
-    name: str = "unknown"
+    name = "unknown"
     """DCC 名称，如 "maya", "3dsmax", "substance_painter" """
 
-    def get_logger(self) -> Logger:
+    def get_logger(self):
         """返回 DCC 特定的日志对象"""
         return Logger
 
-    def get_python_path(self) -> str:
+    def get_python_path(self):
         """
         返回 DCC 的 Python 解释器路径
 
@@ -52,7 +53,7 @@ class DCCAdapter:
         """
         return sys.executable
 
-    def _on_connected(self, parent_window) -> None:
+    def _on_connected(self, parent_window):
         """
         连接建立后的初始化回调
 
@@ -73,7 +74,7 @@ class DCCAdapter:
         except:
             logger.warn("PySide2/PySide6 not found, cannot show connection message box")
 
-    def add_sys_path(self, path: str) -> None:
+    def add_sys_path(self, path):
         """
         将指定路径添加到 sys.path
 
@@ -83,10 +84,10 @@ class DCCAdapter:
         if path not in sys.path:
             sys.path.append(path)
 
-    def get_version(self) -> str:
+    def get_version(self):
         return "Unknown"
 
-    def format_output(self, line: str) -> str:
+    def format_output(self, line):
         """
         可选：DCC 特定的输出格式化
 
@@ -98,7 +99,7 @@ class DCCAdapter:
         """
         return line
 
-    def is_main_thread(self) -> bool:
+    def is_main_thread(self):
         """
         检查当前是否在主线程中
 
@@ -128,7 +129,7 @@ class DCCAdapter:
         """
         return callback(*args, **kwargs)
 
-    def ensure_main_thread(self) -> None:
+    def ensure_main_thread(self):
         """
         确保在主线程中执行（如果需要）
 
@@ -136,7 +137,7 @@ class DCCAdapter:
         """
         pass
 
-    def configure_debugpy(self, python_path: str) -> None:
+    def configure_debugpy(self, python_path):
         """
         配置 debugpy 的全局选项
 

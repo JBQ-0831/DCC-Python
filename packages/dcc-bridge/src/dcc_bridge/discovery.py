@@ -1,22 +1,24 @@
+# -*- coding: utf-8 -*-
 """
 DCC 服务进程自动发现模块
 
 DCC 端 TCP 服务启动后，在本地用户目录写入发现文件；
 CLI 和 VS Code 插件通过读取发现文件自动发现当前运行的 DCC 实例。
+
+兼容 Python 2.7 / 3.x：不使用 from __future__ import annotations、
+签名/变量注解（dict[str, Any] 等）、内置泛型注解、无参 super；
+open(..., encoding=) 改用 io.open；os.makedirs 不带 exist_ok（py2 无）；
+ProcessLookupError / JSONDecodeError 在 py2 不存在，统一用 OSError / ValueError。
 """
 
-from __future__ import annotations
-
 import datetime
+import io
 import json
 import os
 import re
-from typing import Any
-
-from dcc_bridge.adapters import DCCAdapter
 
 
-def get_user_data_dir() -> str:
+def get_user_data_dir():
     """返回 dcc-bridge 用户数据目录"""
     if sys_platform_win():
         base = os.environ.get("USERPROFILE") or os.path.expanduser("~")
@@ -25,25 +27,33 @@ def get_user_data_dir() -> str:
     return os.path.join(base, ".dcc-bridge")
 
 
-def get_instances_dir() -> str:
+def get_instances_dir():
     """返回发现文件存放目录"""
     return os.path.join(get_user_data_dir(), "instances")
 
 
-def sys_platform_win() -> bool:
+def sys_platform_win():
     """当前是否为 Windows 平台"""
     return os.name == "nt" or os.sys.platform.startswith("win")
 
 
-def _ensure_instances_dir() -> None:
-    os.makedirs(get_instances_dir(), exist_ok=True)
+def _ensure_instances_dir():
+    # py2.7 的 os.makedirs 不支持 exist_ok 参数；用 try 兼容已存在目录。
+    d = get_instances_dir()
+    if os.path.isdir(d):
+        return
+    try:
+        os.makedirs(d)
+    except OSError:
+        if not os.path.isdir(d):
+            raise
 
 
-def _instance_filename(dcc_name: str, pid: int) -> str:
-    return os.path.join(get_instances_dir(), f"{dcc_name}-{pid}.json")
+def _instance_filename(dcc_name, pid):
+    return os.path.join(get_instances_dir(), "{0}-{1}.json".format(dcc_name, pid))
 
 
-def _is_pid_alive(pid: int) -> bool:
+def _is_pid_alive(pid):
     """跨平台检测进程是否存活。
 
     DCC 软件关闭时 atexit 钩子不可靠（可能崩溃或被强制结束），
@@ -71,29 +81,23 @@ def _is_pid_alive(pid: int) -> bool:
             kernel32.CloseHandle(handle)
     else:
         # Unix: 发送信号 0，不实际发信号，仅检查进程是否存在
+        # py2 下进程不存在抛 OSError（errno=ESRCH），ProcessLookupError 在 py2 不存在。
         try:
             os.kill(pid, 0)
             return True
-        except (OSError, ProcessLookupError):
+        except OSError:
             return False
 
 
-def register_instance(
-    adapter: DCCAdapter,
-    port: int,
-    pid: int | None = None,
-    host: str = "127.0.0.1",
-) -> str:
+def register_instance(adapter, port, pid=None, host="127.0.0.1"):
     """
     注册一个 DCC 服务实例。
 
     Args:
-        dcc_name: DCC 类型，如 'maya'、'3dsmax'
+        adapter: DCCAdapter 实例
         port: TCP 服务端口
-        dcc_version: DCC 版本，如 '2024'
         pid: 进程 ID，默认使用当前进程 ID
         host: 服务监听地址
-        python_path: DCC Python 解释器路径
 
     Returns:
         写入的发现文件路径
@@ -104,7 +108,7 @@ def register_instance(
     _ensure_instances_dir()
     filepath = _instance_filename(adapter.name, pid)
 
-    info: dict[str, Any] = {
+    info = {
         "pid": pid,
         "dcc_name": adapter.name,
         "dcc_version": adapter.get_version(),
@@ -115,13 +119,14 @@ def register_instance(
         or os.path.abspath(os.path.dirname(os.path.dirname(__file__))),
     }
 
-    with open(filepath, "w", encoding="utf-8") as f:
+    # py2 内置 open 不支持 encoding，使用 io.open 兼容 py2/py3。
+    with io.open(filepath, "w", encoding="utf-8") as f:
         json.dump(info, f, ensure_ascii=False, indent=2)
 
     return filepath
 
 
-def unregister_instance(dcc_name: str, pid: int | None = None) -> bool:
+def unregister_instance(dcc_name, pid=None):
     """
     注销一个 DCC 服务实例。
 
@@ -145,7 +150,7 @@ def unregister_instance(dcc_name: str, pid: int | None = None) -> bool:
     return False
 
 
-def unregister_all_instances() -> int:
+def unregister_all_instances():
     """注销当前进程 ID 对应的所有发现文件，返回删除数量"""
     pid = os.getpid()
     count = 0
@@ -157,14 +162,14 @@ def unregister_all_instances() -> int:
     return count
 
 
-def list_instances() -> list[dict[str, Any]]:
+def list_instances():
     """读取所有发现文件，返回 DCC 实例列表。
 
     会自动清理已退出的 DCC 进程对应的发现文件：
     DCC 软件关闭时 atexit 钩子不可靠（崩溃/强制结束均不触发），
     因此在读取时惰性检查 PID 是否存活，已退出的实例文件会被删除。
     """
-    instances: list[dict[str, Any]] = []
+    instances = []
     instances_dir = get_instances_dir()
 
     if not os.path.isdir(instances_dir):
@@ -179,9 +184,11 @@ def list_instances() -> list[dict[str, Any]]:
 
         filepath = os.path.join(instances_dir, filename)
         try:
-            with open(filepath, "r", encoding="utf-8") as f:
+            # py2 用 io.open 支持 encoding；JSONDecodeError 在 py2 不存在，
+            # json.load 失败统一抛 ValueError。
+            with io.open(filepath, "r", encoding="utf-8") as f:
                 info = json.load(f)
-        except (OSError, json.JSONDecodeError):
+        except (OSError, ValueError):
             continue
 
         # 惰性清理：进程已退出则删除发现文件并跳过
@@ -200,9 +207,7 @@ def list_instances() -> list[dict[str, Any]]:
     return instances
 
 
-def get_instance(
-    dcc_name: str | None = None, port: int | None = None
-) -> dict[str, Any] | None:
+def get_instance(dcc_name=None, port=None):
     """
     获取指定条件的实例。
 
@@ -222,7 +227,7 @@ def get_instance(
     return None
 
 
-def find_instances(dcc_name: str | None = None) -> list[dict[str, Any]]:
+def find_instances(dcc_name=None):
     """按 DCC 类型筛选实例"""
     if dcc_name is None:
         return list_instances()

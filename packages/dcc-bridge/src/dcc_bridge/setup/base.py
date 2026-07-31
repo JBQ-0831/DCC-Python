@@ -9,6 +9,7 @@ DCC 自启动注入器基类
 from __future__ import annotations
 
 import os
+import subprocess
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
@@ -276,6 +277,35 @@ else:
             return None
         return os.path.join(script_dir, self.get_startup_script_name())
 
+    def _get_python_major_version(self, version):
+        """探测目标 DCC 自带 Python 的主版本号（2 或 3）。
+
+        通过实际运行 DCC 的 Python 解释器查询 sys.version_info[0]，避免依赖
+        DCC 版本 -> Python 版本的脆弱映射。
+
+        无法确定时返回 None（调用方按「视为 py3」处理，即仍尝试安装/卸载 debugpy，
+        行为与原逻辑一致）。debugpy 仅支持 Python 3.x，py2 DCC 应跳过 debugpy
+        的安装/卸载。
+        """
+        python_path = self.get_python_path(version)
+        if not python_path or not os.path.exists(python_path):
+            return None
+        try:
+            proc = subprocess.Popen(
+                [python_path, "-c", "import sys; print(sys.version_info[0])"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            out, _err = proc.communicate()
+            if isinstance(out, bytes):
+                out = out.decode("utf-8", "replace")
+            out = out.strip()
+            if out.isdigit():
+                return int(out)
+        except Exception:
+            pass
+        return None
+
     def setup(self, version: str | None = None, pip_index_url: str = "") -> bool:
         """
         注入自启动脚本，并为每个版本安装 debugpy
@@ -283,6 +313,9 @@ else:
         指定 version 时只注入该版本；不指定时遍历所有 >= min_supported_version 的已安装版本。
         全部成功返回 True，任一失败返回 False。
         debugpy 安装失败仅输出警告，不阻断 setup 流程。
+
+        版本策略：仅当目标 DCC 的 Python 为 3.x 时才安装 debugpy（debugpy 不支持
+        py2）；py2 DCC 只注入自启动脚本，不安装 debugpy。
         """
         versions = self._get_target_versions(version)
         if not versions:
@@ -293,6 +326,15 @@ else:
         for ver in versions:
             if not self._setup_single(ver):
                 all_success = False
+            # 仅在目标 DCC 的 Python 为 3.x 时才安装 debugpy
+            # （debugpy 不支持 py2；py2 DCC 仅注入启动脚本即可）
+            major = self._get_python_major_version(ver)
+            if major is not None and major < 3:
+                print(
+                    "Skipping debugpy install for {0} {1}: detected Python 2.x "
+                    "(debugpy requires Python 3.x)".format(self.dcc_name, ver)
+                )
+                continue
             # 安装 debugpy 到该版本 DCC 的 Python 环境
             python_path = self.get_python_path(ver)
             if python_path and os.path.exists(python_path):
@@ -300,18 +342,28 @@ else:
                     from ..debug import install_debugpy
 
                     print(
-                        f"Installing debugpy for {self.dcc_name} {ver} (python={python_path})..."
+                        "Installing debugpy for {0} {1} (python={2})...".format(
+                            self.dcc_name, ver, python_path
+                        )
                     )
                     install_debugpy(python_path, pip_index_url)
-                    print(f"debugpy installed successfully for {self.dcc_name} {ver}")
+                    print(
+                        "debugpy installed successfully for {0} {1}".format(
+                            self.dcc_name, ver
+                        )
+                    )
                 except Exception as e:
                     print(
-                        f"Warning: debugpy installation failed for {self.dcc_name} {ver}: {e}"
+                        "Warning: debugpy installation failed for {0} {1}: {2}".format(
+                            self.dcc_name, ver, e
+                        )
                     )
                     print("  debugpy installation failure does not block startup script injection.")
             else:
                 print(
-                    f"Warning: Python interpreter not found for {self.dcc_name} {ver}, skipping debugpy install"
+                    "Warning: Python interpreter not found for {0} {1}, skipping debugpy install".format(
+                        self.dcc_name, ver
+                    )
                 )
         return all_success
 
@@ -361,6 +413,15 @@ else:
         for ver in versions:
             if not self._unsetup_single(ver):
                 all_success = False
+            # 仅在目标 DCC 的 Python 为 3.x 时才卸载 debugpy
+            # （py2 DCC 从未安装过 debugpy，无需卸载）
+            major = self._get_python_major_version(ver)
+            if major is not None and major < 3:
+                print(
+                    "Skipping debugpy uninstall for {0} {1}: detected Python 2.x "
+                    "(debugpy was never installed)".format(self.dcc_name, ver)
+                )
+                continue
             # 卸载该版本 DCC Python 环境中的 debugpy
             python_path = self.get_python_path(ver)
             if python_path and os.path.exists(python_path):
@@ -368,16 +429,24 @@ else:
                     from ..debug import uninstall_debugpy
 
                     print(
-                        f"Uninstalling debugpy for {self.dcc_name} {ver} (python={python_path})..."
+                        "Uninstalling debugpy for {0} {1} (python={2})...".format(
+                            self.dcc_name, ver, python_path
+                        )
                     )
                     uninstall_debugpy(python_path)
-                    print(f"debugpy uninstalled successfully for {self.dcc_name} {ver}")
+                    print(
+                        "debugpy uninstalled successfully for {0} {1}".format(
+                            self.dcc_name, ver
+                        )
+                    )
                 except Exception as e:
-                    print(f"Warning: debugpy uninstallation failed: {e}")
+                    print("Warning: debugpy uninstallation failed: {0}".format(e))
                     print("  debugpy uninstallation failure does not block startup unsetup.")
             else:
                 print(
-                    f"Warning: Python interpreter not found for {self.dcc_name} {ver}, skipping debugpy uninstall"
+                    "Warning: Python interpreter not found for {0} {1}, skipping debugpy uninstall".format(
+                        self.dcc_name, ver
+                    )
                 )
         return all_success
 

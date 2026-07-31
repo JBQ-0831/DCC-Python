@@ -37,8 +37,8 @@ class MayaSetup(DCCSetup):
     """
 
     dcc_name = "maya"
-    # 仅支持 2020+ 的 Maya
-    min_supported_version = "2020"
+    # 仅支持 2018+ 的 Maya
+    min_supported_version = "2018"
 
     def discover_versions(self) -> list[str]:
         """从注册表扫描已安装的 Maya 版本号"""

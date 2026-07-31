@@ -269,19 +269,23 @@ export class TCPDriver implements IDCCDriver {
         this.config = config;
     }
     
-    private async sendRequest(method: string, params: Record<string, unknown>): Promise<IExecutionResult | null> {
-        console.log(`[TCPDriver] sendRequest: method=${method}, hasSocket=${!!this.socket}, isConnected=${this.isConnectedFlag}`);
-        Logger.info(`[DEBUG] sendRequest: method=${method}, hasSocket=${!!this.socket}, isConnected=${this.isConnectedFlag}`);
+    /**
+     * 发送请求并返回完整服务端响应（保留 result 中的扩展字段，如 python_version）。
+     * 需要读取非标准结果字段的方法（如 ping）使用此方法。
+     */
+    private async sendRawRequest(method: string, params: Record<string, unknown>): Promise<Response | null> {
+        console.log(`[TCPDriver] sendRawRequest: method=${method}, hasSocket=${!!this.socket}, isConnected=${this.isConnectedFlag}`);
+        Logger.info(`[DEBUG] sendRawRequest: method=${method}, hasSocket=${!!this.socket}, isConnected=${this.isConnectedFlag}`);
         
         // 如果连接断开，尝试自动重连
         if (!this.socket || !this.isConnectedFlag) {
-            Logger.info(`[DEBUG] sendRequest: attempting reconnect...`);
+            Logger.info(`[DEBUG] sendRawRequest: attempting reconnect...`);
             const reconnected = await this.connect();
             if (!reconnected) {
                 Logger.error("Not connected to DCC server and reconnection failed");
                 return null;
             }
-            Logger.info(`[DEBUG] sendRequest: reconnected successfully`);
+            Logger.info(`[DEBUG] sendRawRequest: reconnected successfully`);
         }
         
         const id = crypto.randomUUID().replace(/-/g, '_');
@@ -290,22 +294,7 @@ export class TCPDriver implements IDCCDriver {
         return new Promise((resolve) => {
             this.pendingRequests.set(id, (response) => {
                 this.pendingRequests.delete(id);
-                
-                if (response.error) {
-                    resolve({
-                        output: [],
-                        success: false,
-                        error: response.error.message,
-                        traceback: response.error.traceback
-                    });
-                } else if (response.result) {
-                    resolve({
-                        output: response.result.output || [],
-                        success: response.result.success
-                    });
-                } else {
-                    resolve(null);
-                }
+                resolve(response);
             });
             
             const jsonStr = JSON.stringify(request);
@@ -316,6 +305,46 @@ export class TCPDriver implements IDCCDriver {
             const message = Buffer.concat([lengthBytes, jsonBytes]);
             this.socket!.write(message);
         });
+    }
+    
+    /**
+     * 发送请求并把响应转换为对外统一的 IExecutionResult（只保留 output / success / error / traceback）。
+     * 需要读取 result 扩展字段（如 python_version）时请改用 sendRawRequest。
+     */
+    private async sendRequest(method: string, params: Record<string, unknown>): Promise<IExecutionResult | null> {
+        const response = await this.sendRawRequest(method, params);
+        if (!response) {
+            return null;
+        }
+        if (response.error) {
+            return {
+                output: [],
+                success: false,
+                error: response.error.message,
+                traceback: response.error.traceback
+            };
+        } else if (response.result) {
+            return {
+                output: response.result.output || [],
+                success: response.result.success
+            };
+        }
+        return null;
+    }
+    
+    /**
+     * 探测目标 DCC 服务端存活状态与 Python 版本。
+     * 返回 null 表示握手失败（连接未就绪或响应异常），调用方应降级处理。
+     */
+    async ping(): Promise<{ success: boolean; pythonVersion?: string } | null> {
+        const response = await this.sendRawRequest('ping', {});
+        if (!response || !response.result) {
+            return null;
+        }
+        return {
+            success: response.result.success,
+            pythonVersion: response.result.python_version as string | undefined
+        };
     }
     
     private processBuffer(): void {
