@@ -17,7 +17,7 @@ try:
 except ImportError:
     import Queue as queue  # py2 兼容
 
-from dcc_bridge.adapters.base import DCCAdapter, Logger
+from dcc_bridge.adapters.base_adapter import DCCAdapter, Logger
 
 
 class HoudiniLogger(Logger):

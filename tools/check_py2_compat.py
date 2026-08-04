@@ -15,6 +15,7 @@ Py2 兼容性静态扫描器
     F004  函数/返回类型注解                       (py2 语法不认识 : 注解)
     F005  无参 super()                            (py2 运行期 TypeError)
     F008  async / await                           (py2 语法不认识)
+    F009  经典类 class X:(未继承 object)          (py2 下 super()/多重继承报 TypeError / Shiboken 错)
 
 软警告(默认不计入失败，--strict 时计入):
     W001  importlib.reload      -> 应用 imp.reload(跨版本兼容导入)
@@ -159,6 +160,16 @@ def scan_source(source, filename, check_runtime=False):
             findings.append(Finding("F008", "async def 在 py2 不支持", node.lineno))
         if isinstance(node, ast.Await):
             findings.append(Finding("F008", "await 表达式在 py2 不支持", node.lineno))
+        # F009 经典类(空基类，未继承 object)
+        # py2 下经典类不能 super(Cls, self)（报 "must be type, not classobj"），
+        # 也不能与 PySide2.QObject 多重继承（报 Shiboken ObjectType 错）。
+        if isinstance(node, ast.ClassDef):
+            if not node.bases and not node.keywords:
+                findings.append(Finding(
+                    "F009",
+                    "经典类(class X: 未继承 object)在 py2 下无法与 super()/QObject 多重继承，应写 class X(object):",
+                    node.lineno,
+                ))
 
         if check_runtime:
             _check_runtime(node, findings)

@@ -15,7 +15,7 @@ import threading
 
 import pytest
 
-from dcc_bridge.adapters.base import DCCAdapter
+from dcc_bridge.adapters.base_adapter import DCCAdapter
 from dcc_bridge.protocol import Request, Response, decode_message, encode_message
 from dcc_bridge.server import ThreadRequestHandler, SocketServerThread
 

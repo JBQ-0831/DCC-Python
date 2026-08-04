@@ -40,6 +40,13 @@ class MayaSetup(DCCSetup):
     # 仅支持 2018+ 的 Maya
     min_supported_version = "2018"
 
+    def should_defer_start(self) -> bool:
+        """Maya 在 userSetup.py 阶段内核尚未完全就绪，
+        cmds.about(version=True) 等依赖完整内核的 API 会抛异常，
+        因此延迟到 Maya 完全初始化（idle）后再启动服务。
+        """
+        return True
+
     def discover_versions(self) -> list[str]:
         """从注册表扫描已安装的 Maya 版本号"""
         subkeys = self._enum_registry_subkeys(MAYA_REG_BASE)

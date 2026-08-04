@@ -182,6 +182,22 @@ def format_exception(exception_in, filename, code, tb=None, num_ignore_traceback
     )
 
 
+def _safe_emit(text):
+    """py2/py3 兼容安全输出。
+
+    部分 DCC 宿主（如 3ds Max 2019 的 py2.7）会把 stdout 劫持为「只收 unicode」
+    的流；py2 下把含非 ASCII 字节的 str 写进去会抛 TypeError / UnicodeEncodeError。
+    这里统一把内容转成 unicode 输出，并对极端情况兜底 encode，避免「为了打印错误
+    而抛出第二个错误」从而掩盖真实异常。
+    """
+    if sys.version_info[0] == 2 and isinstance(text, str):
+        text = text.decode("utf-8", "replace")
+    try:
+        sys.stdout.write(text + u"\n")
+    except (UnicodeEncodeError, TypeError):
+        sys.stdout.write((text + u"\n").encode("utf-8", "replace"))
+
+
 def handle_exception(
     exception, filename, code, use_colors, num_ignore_tracebacks=0, tb=None
 ):
@@ -193,7 +209,11 @@ def handle_exception(
         traceback_message = "\033[0m\n\033[91m".join(traceback_message.splitlines())
         traceback_message = "\033[91m" + traceback_message + "\033[0m"
 
-    print(traceback_message)
+    # 输出失败（如 py2 unicode stdout）不应掩盖真实异常信息，故内部兜底
+    try:
+        _safe_emit(traceback_message)
+    except Exception:
+        pass
 
 
 def execute_code(code, filename, debugging, exec_globals=None):
@@ -208,7 +228,7 @@ def execute_code(code, filename, debugging, exec_globals=None):
             exc_val, filename, code, use_colors=debugging,
             num_ignore_tracebacks=2, tb=exc_tb
         )
-        return
+        raise
 
     parsed_code = add_print_for_last_expr(parsed_code)
 
@@ -220,6 +240,7 @@ def execute_code(code, filename, debugging, exec_globals=None):
             exc_val, filename, code, use_colors=debugging,
             num_ignore_tracebacks=1, tb=exc_tb
         )
+        raise
 
 
 def main(exec_file, exec_origin, name_var=None, is_debugging=False):

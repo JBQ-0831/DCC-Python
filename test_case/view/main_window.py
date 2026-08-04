@@ -1,3 +1,5 @@
+# coding=utf-8
+
 """通用 PySide 窗体，用于测试 DCC Python 调试功能"""
 try:
     from PySide2.QtWidgets import QMainWindow, QPushButton, QVBoxLayout, QWidget
@@ -20,7 +22,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("DCC Python Debug Test")
         central = QWidget()
         layout = QVBoxLayout(central)
-        btn = QPushButton("Do It123123")
+        btn = QPushButton("Do It11213123")
         btn.clicked.connect(self.controller.doit)
         layout.addWidget(btn)
         self.setCentralWidget(central)

@@ -9,8 +9,9 @@ Maya Adapter
 
 import sys
 import os
+import traceback
 
-from .base import DCCAdapter, Logger
+from .base_adapter import DCCAdapter, Logger
 
 
 class MayaLogger(Logger):
@@ -85,10 +86,13 @@ class MayaAdapter(DCCAdapter):
 
     def get_version(self):
         try:
-            from maya import cmds
+            from maya import cmds as cm
 
-            version = cmds.about(version=True)
+            version = cm.about(version=True)
             print(version)
             return version
-        except:
+        except Exception:
+            # 暴露真实异常，便于排查（如早期调用 about 抛错、cmds 导入失败等）
+            logger = self.get_logger()
+            logger.error(traceback.format_exc())
             return super(MayaAdapter, self).get_version()

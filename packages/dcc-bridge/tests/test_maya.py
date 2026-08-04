@@ -178,6 +178,18 @@ class TestGetStartupScriptContent:
         assert "sys.path.insert" in content
         assert "from dcc_bridge.start import start_server" in content
 
+    def test_defers_start_for_maya(self, setup_instance):
+        """Maya 启动脚本应通过 executeDeferred 延迟启动，避免早期 about 抛异常"""
+        content = setup_instance.get_startup_script_content()
+        assert "import maya.utils" in content
+        assert "maya.utils.executeDeferred(start_server)" in content
+
+    def test_does_not_start_synchronously(self, setup_instance):
+        """Maya 不应在 import 阶段直接同步调用 start_server()"""
+        content = setup_instance.get_startup_script_content()
+        # 同步调用的特征是独立成行的 "    start_server()"
+        assert "    start_server()\n" not in content
+
 
 # ==================== detect_installations ====================
 

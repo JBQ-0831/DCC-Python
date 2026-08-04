@@ -13,8 +13,8 @@ import sys
 
 import pytest
 
-from dcc_bridge.adapters.base import DCCAdapter, Logger
-from dcc_bridge.adapters.blender import BlenderAdapter, BlenderLogger
+from dcc_bridge.adapters.base_adapter import DCCAdapter, Logger
+from dcc_bridge.adapters.blender_adapter import BlenderAdapter, BlenderLogger
 
 
 # ==================== 基础属性 ====================

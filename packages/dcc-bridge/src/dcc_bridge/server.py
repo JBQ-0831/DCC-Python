@@ -24,11 +24,18 @@ import threading
 import traceback
 
 from .protocol import Request, Response, decode_message, encode_message
+from dcc_bridge.compat import _Py2UnicodeWriter
 
 
-class _RequestHandlerBase:
+class _RequestHandlerBase(object):
     """
     请求处理共享逻辑（与 UI 框架无关）
+
+    显式继承 object 是 Python 2 兼容要求：Python 2 下若本类是经典类
+    （classic class，不写 (object)），则与 PySide2.QObject 进行多重继承
+    （见 _QtRequestHandler）时会报
+    "Invalid base class used in type Shiboken.ObjectType" 错误。
+    Python 3 下所有类默认 new-style，此处 (object) 冗余但无害。
 
     收到请求后在主线程中执行代码并返回结果。主线程派发由外层机制保证：
     - Qt 环境：RequestHandler(QObject) 通过 Signal 在主线程触发本类的 handle()
@@ -81,8 +88,12 @@ class _RequestHandlerBase:
         old_stdout = sys.stdout
         old_stderr = sys.stderr
         captured = io.StringIO()
-        sys.stdout = captured
-        sys.stderr = captured
+        # py2 DCC（如 Max 2019）的 sys.stdout 被宿主劫持为只收 unicode 的流，
+        # 用户代码 print 含非 ASCII 字节的 str(bytes) 会直接 TypeError。捕获流
+        # 同样包一层 _Py2UnicodeWriter，确保 py2 下 print 的 str 自动转 unicode 写入，
+        # 不被 io.StringIO（py2 文本流只收 unicode）拒绝。py3 下该包装零副作用。
+        sys.stdout = _Py2UnicodeWriter(captured)
+        sys.stderr = _Py2UnicodeWriter(captured)
 
         try:
             if method == "execute":

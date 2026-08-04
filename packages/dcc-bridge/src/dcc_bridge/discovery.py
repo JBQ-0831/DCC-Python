@@ -119,9 +119,16 @@ def register_instance(adapter, port, pid=None, host="127.0.0.1"):
         or os.path.abspath(os.path.dirname(os.path.dirname(__file__))),
     }
 
-    # py2 内置 open 不支持 encoding，使用 io.open 兼容 py2/py3。
-    with io.open(filepath, "w", encoding="utf-8") as f:
-        json.dump(info, f, ensure_ascii=False, indent=2)
+    # py2/py3 统一用二进制流写入并手动转码：
+    # io.open 文本模式在 py2 下要求 write 接收 unicode，而
+    # json.dump(ensure_ascii=False) 对纯 ASCII 内容会输出 str(bytes)，
+    # 直接写会触发 "write() argument 1 must be unicode, not str"。
+    # 改用二进制模式 + 统一转 bytes 规避该 py2 编码坑（py3 下同样安全）。
+    with io.open(filepath, "wb") as f:
+        text = json.dumps(info, ensure_ascii=False, indent=2)
+        if not isinstance(text, bytes):
+            text = text.encode("utf-8")
+        f.write(text)
 
     return filepath
 

@@ -11,30 +11,57 @@ import sys
 import os
 
 
-class Logger:
-    """通用日志类，各 DCC 可继承并覆盖"""
+class Logger(object):
+    """通用日志类，各 DCC 可继承并覆盖
+
+    显式继承 object：Python 2 下必须保证是 new-style class，否则所有
+    子类（MaxAdapter 等）在 py2 下都会变成经典类，导致
+    super(MaxAdapter, self) 报 "super() argument 1 must be type, not classobj"。
+    Python 3 下 (object) 冗余但无害。
+    """
 
     channel = "DCC Bridge"
 
     @classmethod
+    def _emit(cls, level, message):
+        # py2 + DCC 宿主（如 Max 2019）常把 stdout/stderr 劫持为只收 unicode 的流，
+        # 普通 print 语句写 str(bytes) 会报 "unicode argument expected, got 'str'"。
+        # 统一把内容转成 unicode（py2）/ str（py3）再输出，并用 try/except 兜底，
+        # 兼容 stdout 既可能期望 unicode（io.StringIO / DCC 日志流）也可能期望
+        # bytes（cStringIO）的情况。
+        if sys.version_info[0] == 2 and isinstance(message, str):
+            message = message.decode("utf-8", "replace")
+        text = u"[{0}] {1}: {2}".format(level, cls.channel, message)
+        try:
+            sys.stdout.write(text + u"\n")
+        except (UnicodeEncodeError, TypeError):
+            # stdout 只收 bytes 的极端情况，回退编码后写
+            sys.stdout.write((text + u"\n").encode("utf-8", "replace"))
+
+    @classmethod
     def info(cls, message):
-        print("[INFO] {0}: {1}".format(cls.channel, message))
+        cls._emit("INFO", message)
 
     @classmethod
     def warn(cls, message):
-        print("[WARN] {0}: {1}".format(cls.channel, message))
+        cls._emit("WARN", message)
 
     @classmethod
     def error(cls, message):
-        print("[ERROR] {0}: {1}".format(cls.channel, message))
+        cls._emit("ERROR", message)
 
 
-class DCCAdapter:
+class DCCAdapter(object):
     """
     DCC Adapter 基类
 
     各 DCC 应继承此类并实现特定逻辑。
     基类提供默认实现，确保服务端可以正常运行。
+
+    显式继承 object：Python 2 下必须保证是 new-style class，否则所有
+    子类在 py2 下都会变成经典类（classobj），导致 super(SubClass, self)
+    报 "super() argument 1 must be type, not classobj"。Python 3 下
+    (object) 冗余但无害。
     """
 
     name = "unknown"

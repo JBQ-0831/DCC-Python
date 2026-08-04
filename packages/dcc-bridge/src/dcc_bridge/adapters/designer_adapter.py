@@ -10,7 +10,7 @@ SubstanceDesigner Adapter
 import sys
 import os
 
-from .base import DCCAdapter, Logger
+from .base_adapter import DCCAdapter, Logger
 
 
 class SubstanceDesignerLogger(Logger):

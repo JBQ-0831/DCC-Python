@@ -199,6 +199,18 @@ class DCCSetup(ABC):
         """返回启动脚本文件名，默认 dcc_bridge_startup.py"""
         return "dcc_bridge_startup.py"
 
+    def should_defer_start(self) -> bool:
+        """该 DCC 是否需要延迟启动。
+
+        默认 False（同步启动）。某些 DCC 在自启动脚本执行阶段内核/场景
+        尚未完全就绪（如 Maya 的 userSetup.py 阶段 cmds.about() 会抛异常），
+        需延迟到 DCC 完全初始化后再启动服务。子类可覆盖此方法返回 True。
+
+        Returns:
+            True 表示应延迟启动（通过 DCC 提供的 idle/deferred 机制）。
+        """
+        return False
+
     def get_startup_script_content(self) -> str:
         """
         返回启动脚本内容
@@ -212,7 +224,20 @@ class DCCSetup(ABC):
 
         _pkg_dir = os.path.dirname(os.path.dirname(os.path.abspath(_db.__file__)))
 
+        # 需要延迟启动时，用 DCC 的 idle/deferred 机制把 start_server 推到
+        # 主线程空闲后再执行，避免早期内核未就绪导致的 API 异常（如 Maya 的
+        # cmds.about()）。否则直接在 import 阶段同步启动。
+        if self.should_defer_start():
+            _start_body = (
+                "    import maya.utils\n"
+                "    maya.utils.executeDeferred(start_server)"
+            )
+        else:
+            _start_body = "    start_server()"
+
         return f'''\
+# coding: utf-8
+
 # DCC Bridge 自动启动脚本
 # 由 `dcc setup {self.dcc_name}` 注入，删除前请先运行 `dcc unsetup {self.dcc_name}`
 import sys
@@ -226,9 +251,9 @@ try:
     from dcc_bridge.start import start_server
 except ImportError:
     # dcc-bridge 依赖缺失或已被卸载，静默跳过
-    pass
+    print("dcc-bridge 依赖缺失或已被卸载，无法启动服务")
 else:
-    start_server()
+{_start_body}
 '''
 
     def _post_setup(self, script_dir: str) -> None:

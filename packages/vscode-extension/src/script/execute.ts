@@ -61,6 +61,8 @@ async function executeFile(fileUri: vscode.Uri, execOrigin: string) {
     if (!isDebugging) {
         const outputChannel = getOutputChannel(true);
         if (response !== null && outputChannel) {
+            const failed = !response.success || !!response.error;
+
             if (response.output.length > 0) {
                 for (const line of response.output) {
                     if (line !== "\n") {
@@ -69,7 +71,21 @@ async function executeFile(fileUri: vscode.Uri, execOrigin: string) {
                 }
             }
 
-            outputChannel.appendLine(">>>");
+            if (failed) {
+                // 执行失败时把错误与回溯呈现给用户，避免只看到 ">>>" 而无感知
+                if (response.error) {
+                    outputChannel.appendLine("Error: " + response.error);
+                }
+                if (response.traceback) {
+                    outputChannel.appendLine(response.traceback);
+                }
+                outputChannel.appendLine(">>> [执行失败]");
+                vscode.window.showErrorMessage(
+                    "DCC 执行失败：" + (response.error || "未知错误")
+                );
+            } else {
+                outputChannel.appendLine(">>>");
+            }
 
             if (config.get<boolean>("execute.showOutput")) {
                 outputChannel.show(true);

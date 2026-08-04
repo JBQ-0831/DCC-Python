@@ -14,8 +14,12 @@ import json
 import struct
 
 
-class Request:
-    """请求对象"""
+class Request(object):
+    """请求对象
+
+    显式继承 object：Python 2 下必须是 new-style class（经典类会导致 super()/多重继承在 py2 下报错）。
+    Python 3 下 (object) 冗余但无害。
+    """
 
     def __init__(self, id, method, params=None):
         self.id = id
@@ -30,8 +34,12 @@ class Request:
         return cls(id=data["id"], method=data["method"], params=data.get("params", {}))
 
 
-class Response:
-    """响应对象"""
+class Response(object):
+    """响应对象
+
+    显式继承 object：Python 2 下必须是 new-style class（经典类会导致 super()/多重继承在 py2 下报错）。
+    Python 3 下 (object) 冗余但无害。
+    """
 
     def __init__(self, id, result=None, error=None):
         self.id = id

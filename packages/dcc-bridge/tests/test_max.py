@@ -186,6 +186,12 @@ class TestGetStartupScriptContent:
         assert "sys.path.insert" in content
         assert "from dcc_bridge.start import start_server" in content
 
+    def test_starts_synchronously_for_max(self, setup_instance):
+        """Max 不需要延迟，应直接在 import 阶段同步调用 start_server()"""
+        content = setup_instance.get_startup_script_content()
+        assert "    start_server()\n" in content
+        assert "executeDeferred" not in content
+
 
 # ==================== detect_installations ====================
 

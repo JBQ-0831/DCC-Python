@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import sys
+
 """
 DCC TCP 服务端启动脚本
 
@@ -20,6 +22,19 @@ f-string、无参 super、变量/签名注解等 py3-only 语法。
 
 DEFAULT_PORT = 7002
 DEFAULT_HOST = "127.0.0.1"
+
+
+# py2 DCC stdout / stderr 自适应转码包装集中在 dcc_bridge.compat，
+# 供 start_server 与 server 请求捕获流共用，避免重复实现。
+from dcc_bridge.compat import _Py2UnicodeWriter
+
+
+def _patch_std_streams_for_py2():
+    """py2 宿主下将 stdout/stderr 替换为自适应 unicode 包装流。py3 下无操作。"""
+    if sys.version_info[0] >= 3:
+        return
+    sys.stdout = _Py2UnicodeWriter(sys.stdout)
+    sys.stderr = _Py2UnicodeWriter(sys.stderr)
 
 
 def detect_dcc():
@@ -89,11 +104,11 @@ def get_adapter(dcc_name):
     Returns:
         DCCAdapter 实例
     """
-    from dcc_bridge.adapters.base import DCCAdapter
+    from dcc_bridge.adapters.base_adapter import DCCAdapter
 
     if dcc_name == "maya":
         try:
-            from dcc_bridge.adapters.maya import MayaAdapter
+            from dcc_bridge.adapters.maya_adapter import MayaAdapter
 
             return MayaAdapter()
         except ImportError:
@@ -102,7 +117,7 @@ def get_adapter(dcc_name):
 
     elif dcc_name == "3dsmax":
         try:
-            from dcc_bridge.adapters.max import MaxAdapter
+            from dcc_bridge.adapters.max_adapter import MaxAdapter
 
             return MaxAdapter()
         except ImportError:
@@ -111,7 +126,7 @@ def get_adapter(dcc_name):
 
     elif dcc_name == "substance_painter":
         try:
-            from dcc_bridge.adapters.painter import SubstancePainterAdapter
+            from dcc_bridge.adapters.painter_adapter import SubstancePainterAdapter
 
             return SubstancePainterAdapter()
         except ImportError:
@@ -120,7 +135,7 @@ def get_adapter(dcc_name):
 
     elif dcc_name == "substance_designer":
         try:
-            from dcc_bridge.adapters.designer import SubstanceDesignerAdapter
+            from dcc_bridge.adapters.designer_adapter import SubstanceDesignerAdapter
 
             return SubstanceDesignerAdapter()
         except ImportError:
@@ -129,7 +144,7 @@ def get_adapter(dcc_name):
 
     elif dcc_name == "houdini":
         try:
-            from dcc_bridge.adapters.houdini import HoudiniAdapter
+            from dcc_bridge.adapters.houdini_adapter import HoudiniAdapter
 
             return HoudiniAdapter()
         except ImportError:
@@ -138,7 +153,7 @@ def get_adapter(dcc_name):
 
     elif dcc_name == "blender":
         try:
-            from dcc_bridge.adapters.blender import BlenderAdapter
+            from dcc_bridge.adapters.blender_adapter import BlenderAdapter
 
             return BlenderAdapter()
         except ImportError:
@@ -179,6 +194,10 @@ def start_server(port=DEFAULT_PORT, host=DEFAULT_HOST, dcc_name=None):
     Returns:
         SocketServerThread 实例（服务端后台线程）
     """
+    # py2 DCC（如 Max 2019）的 stdout 只收 unicode，用户代码 print 含非 ASCII
+    # 字节会直接崩溃。启动 server 前统一把 stdout/stderr 换成自适应转码包装流。
+    _patch_std_streams_for_py2()
+    print("start_server dcc_name={0}".format(dcc_name))
     # 自动检测 DCC 环境
     dcc_name = dcc_name or detect_dcc()
     print("Detected DCC: {0}".format(dcc_name))
@@ -192,7 +211,9 @@ def start_server(port=DEFAULT_PORT, host=DEFAULT_HOST, dcc_name=None):
             print("Port {0} is in use, using {1} instead".format(port, actual_port))
 
         adapter = get_adapter(dcc_name)
-
+        print("adapter={0}".format(adapter))
+        print("python.exe = {0}".format(adapter.get_python_path()))
+        print("version = {0}".format(adapter.get_version()))
         # Houdini 走 adapter.run_on_main_thread（一次性事件循环回调），不 import
         # PySide，避免双 Qt 崩溃；Blender 无 Qt 也走 adapter 路径；其余 Qt DCC
         # 用 Signal 派发。

@@ -17,9 +17,12 @@ class DCCClientError(Exception):
     """客户端错误"""
 
 
-class DCCClient:
+class DCCClient(object):
     """
     通用 DCC TCP 客户端
+
+    显式继承 object：Python 2 下必须是 new-style class，否则 super()/多重继承在 py2 下报错。
+    Python 3 下 (object) 冗余但无害。
 
     通过长度前缀 + JSON 协议与 DCC 端服务通信。
     """
