@@ -22,6 +22,24 @@ from dcc_bridge.setup.houdini import (
 )
 
 
+# ==================== 路径辅助 ====================
+
+def _houdini_script(home, ver, py):
+    """主脚本路径：pythonX.Ylibs/dcc_bridge/dcc_bridge_startup.py（隔离子目录）"""
+    return (
+        home / "Documents" / f"houdini{ver}"
+        / f"python{py}{HOUDINI_PYTHON_LIBS_SUFFIX}" / "dcc_bridge" / "dcc_bridge_startup.py"
+    )
+
+
+def _houdini_launcher(home, ver, py):
+    """launcher 路径：pythonX.Ylibs/uiready.py（自动加载根目录）"""
+    return (
+        home / "Documents" / f"houdini{ver}"
+        / f"python{py}{HOUDINI_PYTHON_LIBS_SUFFIX}" / "uiready.py"
+    )
+
+
 # ==================== fixture ====================
 
 @pytest.fixture
@@ -82,7 +100,12 @@ def mock_python_env(monkeypatch):
     - subprocess.run 返回 "3.13"，模拟 python -c 查询到的版本号
     - 将 install_debugpy 替换为空操作，避免 setup 时触发真实 pip 安装
     """
-    monkeypatch.setattr(houdini.os, "listdir", lambda path: ["python313"])
+    _real_listdir = houdini.os.listdir
+    monkeypatch.setattr(
+        houdini.os,
+        "listdir",
+        lambda p: ["python313"] if "Side Effects Software" in str(p) else _real_listdir(p),
+    )
     # isdir 仅对安装目录返回 True，避免破坏 os.makedirs（其内部会调用
     # os.path.exists/isdir(head) 判断父目录是否已存在）
     _real_isdir = houdini.os.path.isdir
@@ -215,12 +238,16 @@ class TestGetScriptDir:
         assert setup_instance.get_script_dir() is None
 
 
-# ==================== get_startup_script_name ====================
+# ==================== get_startup_script_name / launcher ====================
 
 class TestGetStartupScriptName:
-    def test_returns_uiread(self, setup_instance):
-        """Houdini 启动脚本固定为 uiready.py"""
-        assert setup_instance.get_startup_script_name() == "uiready.py"
+    def test_returns_default_name(self, setup_instance):
+        """Houdini 不再重写主脚本名，应返回默认 dcc_bridge_startup.py"""
+        assert setup_instance.get_startup_script_name() == "dcc_bridge_startup.py"
+
+    def test_launcher_name_is_uiready(self, setup_instance):
+        """Houdini 的 launcher 是 pythonX.Ylibs/uiready.py"""
+        assert setup_instance.get_launcher_name() == "uiready.py"
 
 
 # ==================== get_startup_script_content ====================
@@ -279,11 +306,13 @@ class TestDetectInstallations:
 # ==================== get_startup_script_path ====================
 
 class TestGetStartupScriptPath:
-    def test_returns_full_path(self, setup_instance, populated_registry, mock_home, mock_python_env):
-        """应返回 pythonX.Ylibs 目录下的 uiready.py"""
+    def test_returns_full_path_in_dcc_bridge_subdir(self, setup_instance, populated_registry, mock_home, mock_python_env):
+        """主脚本应位于 pythonX.Ylibs/dcc_bridge/dcc_bridge_startup.py"""
         path = setup_instance.get_startup_script_path("19.5")
         assert path is not None
-        assert path.endswith(os.path.join(f"python3.13{HOUDINI_PYTHON_LIBS_SUFFIX}", "uiready.py"))
+        assert path.endswith(
+            os.path.join(f"python3.13{HOUDINI_PYTHON_LIBS_SUFFIX}", "dcc_bridge", "dcc_bridge_startup.py")
+        )
 
     def test_returns_none_for_nonexistent(self, setup_instance, populated_registry, mock_home, mock_python_env):
         """版本不存在时返回 None"""
@@ -294,24 +323,30 @@ class TestGetStartupScriptPath:
 
 class TestSetup:
     def test_writes_startup_script(self, setup_instance, populated_registry, mock_home, mock_python_env):
-        """setup 后应存在 uiready.py"""
+        """setup 后应存在 dcc_bridge/dcc_bridge_startup.py"""
         assert setup_instance.setup("19.5") is True
-        script_path = (
-            mock_home / "Documents" / "houdini19.5"
-            / f"python3.13{HOUDINI_PYTHON_LIBS_SUFFIX}" / "uiready.py"
-        )
-        assert script_path.exists()
+        assert _houdini_script(mock_home, "19.5", "3.13").exists()
+
+    def test_writes_launcher_uiready(self, setup_instance, populated_registry, mock_home, mock_python_env):
+        """setup 后应存在 launcher uiready.py（在 pythonX.Ylibs 根目录）"""
+        assert setup_instance.setup("19.5") is True
+        assert _houdini_launcher(mock_home, "19.5", "3.13").exists()
 
     def test_script_content_correct(self, setup_instance, populated_registry, mock_home, mock_python_env):
         """写入的脚本内容应包含 houdini 和 start_server"""
         setup_instance.setup("19.5")
-        script_path = (
-            mock_home / "Documents" / "houdini19.5"
-            / f"python3.13{HOUDINI_PYTHON_LIBS_SUFFIX}" / "uiready.py"
-        )
-        content = script_path.read_text(encoding="utf-8")
+        content = _houdini_script(mock_home, "19.5", "3.13").read_text(encoding="utf-8")
         assert "houdini" in content
         assert "start_server" in content
+
+    def test_launcher_execs_main_script(self, setup_instance, populated_registry, mock_home, mock_python_env):
+        """launcher 内容应 exec 隔离子目录中的主脚本"""
+        setup_instance.setup("19.5")
+        content = _houdini_launcher(mock_home, "19.5", "3.13").read_text(encoding="utf-8")
+        assert "dcc_bridge_startup.py" in content
+        assert "execfile" in content
+        assert "__file__" not in content
+        assert setup_instance.get_startup_script_path("19.5", "en") in content
 
     def test_idempotent_setup(self, setup_instance, populated_registry, mock_home, mock_python_env):
         """多次 setup 应覆盖写入，不报错"""
@@ -323,30 +358,44 @@ class TestSetup:
         assert setup_instance.setup("99.9") is False
 
     def test_setup_all_versions_when_no_version_specified(self, setup_instance, populated_registry, mock_home, mock_python_env):
-        """不指定版本时应为所有 19.0+ 的已安装版本注入脚本"""
+        """不指定版本时应为所有 19.0+ 的已安装版本注入脚本（主脚本 + launcher）"""
         assert setup_instance.setup() is True
         for ver, py in (("19.5", "3.13"), ("22.0", "3.13")):
-            script_path = (
-                mock_home / "Documents" / f"houdini{ver}"
-                / f"python{py}{HOUDINI_PYTHON_LIBS_SUFFIX}" / "uiready.py"
-            )
-            assert script_path.exists(), f"startup script not found for {ver}"
+            assert _houdini_script(mock_home, ver, py).exists(), f"startup script not found for {ver}"
+            assert _houdini_launcher(mock_home, ver, py).exists(), f"launcher not found for {ver}"
 
 
 # ==================== unsetup ====================
 
 class TestUnsetup:
     def test_removes_startup_script(self, setup_instance, populated_registry, mock_home, mock_python_env):
-        """unsetup 后应删除 uiready.py"""
+        """unsetup 后应删除 dcc_bridge/dcc_bridge_startup.py"""
         setup_instance.setup("19.5")
-        script_path = (
-            mock_home / "Documents" / "houdini19.5"
-            / f"python3.13{HOUDINI_PYTHON_LIBS_SUFFIX}" / "uiready.py"
-        )
+        script_path = _houdini_script(mock_home, "19.5", "3.13")
         assert script_path.exists()
 
         assert setup_instance.unsetup("19.5") is True
         assert not script_path.exists()
+
+    def test_removes_launcher(self, setup_instance, populated_registry, mock_home, mock_python_env):
+        """unsetup 后应删除 launcher uiready.py"""
+        setup_instance.setup("19.5")
+        launcher = _houdini_launcher(mock_home, "19.5", "3.13")
+        assert launcher.exists()
+
+        assert setup_instance.unsetup("19.5") is True
+        assert not launcher.exists()
+
+    def test_removes_empty_dcc_bridge_dir(self, setup_instance, populated_registry, mock_home, mock_python_env):
+        """unsetup 应删掉已空的 dcc_bridge 隔离子目录"""
+        setup_instance.setup("19.5")
+        dcc_bridge_dir = (
+            mock_home / "Documents" / "houdini19.5"
+            / f"python3.13{HOUDINI_PYTHON_LIBS_SUFFIX}" / "dcc_bridge"
+        )
+        assert dcc_bridge_dir.exists()
+        setup_instance.unsetup("19.5")
+        assert not dcc_bridge_dir.exists()
 
     def test_returns_true_when_script_not_found(self, setup_instance, populated_registry, mock_home, mock_python_env):
         """脚本不存在时仍返回 True"""
@@ -357,14 +406,11 @@ class TestUnsetup:
         assert setup_instance.unsetup("99.9") is False
 
     def test_unsetup_after_setup_roundtrip(self, setup_instance, populated_registry, mock_home, mock_python_env):
-        """setup -> unsetup 往返后脚本应不存在"""
+        """setup -> unsetup 往返后脚本与 launcher 都应不存在"""
         setup_instance.setup("19.5")
         setup_instance.unsetup("19.5")
-        script_path = (
-            mock_home / "Documents" / "houdini19.5"
-            / f"python3.13{HOUDINI_PYTHON_LIBS_SUFFIX}" / "uiready.py"
-        )
-        assert not script_path.exists()
+        assert not _houdini_script(mock_home, "19.5", "3.13").exists()
+        assert not _houdini_launcher(mock_home, "19.5", "3.13").exists()
 
 
 # ==================== 版本过滤 ====================

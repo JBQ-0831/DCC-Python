@@ -244,7 +244,7 @@ class TestGetStartupScriptPath:
         """应返回 scripts/startup 目录下的 dcc_bridge_startup.py"""
         path = setup_instance.get_startup_script_path("4.5")
         assert path is not None
-        assert path.endswith(os.path.join("startup", "dcc_bridge_startup.py"))
+        assert path.endswith(os.path.join("startup", "dcc_bridge", "dcc_bridge_startup.py"))
 
     def test_returns_none_for_nonexistent(self, setup_instance, populated_registry, mock_home):
         """版本不存在时返回 None"""
@@ -259,7 +259,7 @@ class TestSetup:
         assert setup_instance.setup("4.5") is True
         script_path = (
             mock_home / "AppData" / "Roaming" / "Blender Foundation" / "Blender"
-            / "4.5" / "scripts" / "startup" / "dcc_bridge_startup.py"
+            / "4.5" / "scripts" / "startup" / "dcc_bridge" / "dcc_bridge_startup.py"
         )
         assert script_path.exists()
 
@@ -268,7 +268,7 @@ class TestSetup:
         setup_instance.setup("4.5")
         script_path = (
             mock_home / "AppData" / "Roaming" / "Blender Foundation" / "Blender"
-            / "4.5" / "scripts" / "startup" / "dcc_bridge_startup.py"
+            / "4.5" / "scripts" / "startup" / "dcc_bridge" / "dcc_bridge_startup.py"
         )
         content = script_path.read_text(encoding="utf-8")
         assert "blender" in content
@@ -303,7 +303,7 @@ class TestUnsetup:
         setup_instance.setup("4.5")
         script_path = (
             mock_home / "AppData" / "Roaming" / "Blender Foundation" / "Blender"
-            / "4.5" / "scripts" / "startup" / "dcc_bridge_startup.py"
+            / "4.5" / "scripts" / "startup" / "dcc_bridge" / "dcc_bridge_startup.py"
         )
         assert script_path.exists()
 
@@ -324,7 +324,7 @@ class TestUnsetup:
         setup_instance.unsetup("4.5")
         script_path = (
             mock_home / "AppData" / "Roaming" / "Blender Foundation" / "Blender"
-            / "4.5" / "scripts" / "startup" / "dcc_bridge_startup.py"
+            / "4.5" / "scripts" / "startup" / "dcc_bridge" / "dcc_bridge_startup.py"
         )
         assert not script_path.exists()
 
@@ -352,7 +352,7 @@ class TestMultiVersionSetup:
         for ver in ("4.2", "4.5"):
             script_path = (
                 mock_home / "AppData" / "Roaming" / "Blender Foundation" / "Blender"
-                / ver / "scripts" / "startup" / "dcc_bridge_startup.py"
+                / ver / "scripts" / "startup" / "dcc_bridge" / "dcc_bridge_startup.py"
             )
             assert script_path.exists(), f"startup script not found for {ver}"
 
@@ -363,7 +363,7 @@ class TestMultiVersionSetup:
         for ver in ("4.2", "4.5"):
             script_path = (
                 mock_home / "AppData" / "Roaming" / "Blender Foundation" / "Blender"
-                / ver / "scripts" / "startup" / "dcc_bridge_startup.py"
+                / ver / "scripts" / "startup" / "dcc_bridge" / "dcc_bridge_startup.py"
             )
             assert not script_path.exists(), f"startup script not removed for {ver}"
 
@@ -376,7 +376,7 @@ class TestMultiVersionSetup:
         assert setup_instance.setup("4.2") is True
         script_4_2 = (
             mock_home / "AppData" / "Roaming" / "Blender Foundation" / "Blender"
-            / "4.2" / "scripts" / "startup" / "dcc_bridge_startup.py"
+            / "4.2" / "scripts" / "startup" / "dcc_bridge" / "dcc_bridge_startup.py"
         )
         assert script_4_2.exists()
 
@@ -394,7 +394,7 @@ class TestMultiVersionSetup:
         # 4.5 仍应成功
         script_4_5 = (
             mock_home / "AppData" / "Roaming" / "Blender Foundation" / "Blender"
-            / "4.5" / "scripts" / "startup" / "dcc_bridge_startup.py"
+            / "4.5" / "scripts" / "startup" / "dcc_bridge" / "dcc_bridge_startup.py"
         )
         assert script_4_5.exists()
 
@@ -416,6 +416,43 @@ class TestGetTargetVersions:
     def test_returns_empty_when_all_below_min(self, setup_instance, mock_registry):
         """没有已安装版本时返回空列表"""
         assert setup_instance._get_target_versions() == []
+
+
+# ==================== launcher ====================
+
+class TestLauncher:
+    def test_writes_launcher(self, setup_instance, populated_registry, mock_home):
+        """setup 后应存在 launcher dcc_bridge_launcher.py"""
+        assert setup_instance.setup("4.5") is True
+        launcher = (
+            mock_home / "AppData" / "Roaming" / "Blender Foundation" / "Blender"
+            / "4.5" / "scripts" / "startup" / "dcc_bridge_launcher.py"
+        )
+        assert launcher.exists()
+
+    def test_launcher_execs_main_script(self, setup_instance, populated_registry, mock_home):
+        """launcher 内容应 exec 隔离子目录中的主脚本"""
+        setup_instance.setup("4.5")
+        launcher = (
+            mock_home / "AppData" / "Roaming" / "Blender Foundation" / "Blender"
+            / "4.5" / "scripts" / "startup" / "dcc_bridge_launcher.py"
+        )
+        content = launcher.read_text(encoding="utf-8")
+        assert "dcc_bridge_startup.py" in content
+        assert "execfile" in content
+        assert "__file__" not in content
+        assert setup_instance.get_startup_script_path("4.5", "en") in content
+
+    def test_unsetup_removes_launcher(self, setup_instance, populated_registry, mock_home):
+        """unsetup 应删除 launcher"""
+        setup_instance.setup("4.5")
+        launcher = (
+            mock_home / "AppData" / "Roaming" / "Blender Foundation" / "Blender"
+            / "4.5" / "scripts" / "startup" / "dcc_bridge_launcher.py"
+        )
+        assert launcher.exists()
+        setup_instance.unsetup("4.5")
+        assert not launcher.exists()
 
 
 # ==================== get_setup 工厂函数 ====================

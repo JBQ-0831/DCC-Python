@@ -233,7 +233,7 @@ class TestGetStartupScriptPath:
         path = setup_instance.get_startup_script_path("10.1")
         assert path is not None
         assert path.endswith(
-            os.path.join("python", "sduserplugins", "dcc_bridge_startup.py")
+            os.path.join("python", "sduserplugins", "dcc_bridge", "dcc_bridge_startup.py")
         )
 
 
@@ -243,13 +243,13 @@ class TestSetup:
     def test_writes_startup_script(self, setup_instance, populated_registry, mock_home):
         """setup 后应存在 dcc_bridge_startup.py"""
         assert setup_instance.setup("10.1") is True
-        script_path = mock_home / "Documents" / "Adobe" / "Adobe Substance 3D Designer" / "python" / "sduserplugins" / "dcc_bridge_startup.py"
+        script_path = mock_home / "Documents" / "Adobe" / "Adobe Substance 3D Designer" / "python" / "sduserplugins" / "dcc_bridge" / "dcc_bridge_startup.py"
         assert script_path.exists()
 
     def test_script_content_correct(self, setup_instance, populated_registry, mock_home):
         """写入的脚本内容应包含 substance_designer 和 start_server"""
         setup_instance.setup("10.1")
-        script_path = mock_home / "Documents" / "Adobe" / "Adobe Substance 3D Designer" / "python" / "sduserplugins" / "dcc_bridge_startup.py"
+        script_path = mock_home / "Documents" / "Adobe" / "Adobe Substance 3D Designer" / "python" / "sduserplugins" / "dcc_bridge" / "dcc_bridge_startup.py"
         content = script_path.read_text(encoding="utf-8")
         assert "substance_designer" in content
         assert "start_server" in content
@@ -263,7 +263,7 @@ class TestSetup:
         """不指定版本时通过 discover_versions 找到 10.1 并注入"""
         mock_version_info(10, 1)
         assert setup_instance.setup() is True
-        script_path = mock_home / "Documents" / "Adobe" / "Adobe Substance 3D Designer" / "python" / "sduserplugins" / "dcc_bridge_startup.py"
+        script_path = mock_home / "Documents" / "Adobe" / "Adobe Substance 3D Designer" / "python" / "sduserplugins" / "dcc_bridge" / "dcc_bridge_startup.py"
         assert script_path.exists()
 
 
@@ -273,7 +273,7 @@ class TestUnsetup:
     def test_removes_startup_script(self, setup_instance, populated_registry, mock_home):
         """unsetup 后应删除 dcc_bridge_startup.py"""
         setup_instance.setup("10.1")
-        script_path = mock_home / "Documents" / "Adobe" / "Adobe Substance 3D Designer" / "python" / "sduserplugins" / "dcc_bridge_startup.py"
+        script_path = mock_home / "Documents" / "Adobe" / "Adobe Substance 3D Designer" / "python" / "sduserplugins" / "dcc_bridge" / "dcc_bridge_startup.py"
         assert script_path.exists()
 
         assert setup_instance.unsetup("10.1") is True
@@ -287,8 +287,45 @@ class TestUnsetup:
         """setup -> unsetup 往返后脚本应不存在"""
         setup_instance.setup("10.1")
         setup_instance.unsetup("10.1")
-        script_path = mock_home / "Documents" / "Adobe" / "Adobe Substance 3D Designer" / "python" / "sduserplugins" / "dcc_bridge_startup.py"
+        script_path = mock_home / "Documents" / "Adobe" / "Adobe Substance 3D Designer" / "python" / "sduserplugins" / "dcc_bridge" / "dcc_bridge_startup.py"
         assert not script_path.exists()
+
+
+# ==================== launcher ====================
+
+class TestLauncher:
+    def test_writes_launcher(self, setup_instance, populated_registry, mock_home):
+        """setup 后应存在 launcher dcc_bridge_launcher.py"""
+        assert setup_instance.setup("10.1") is True
+        launcher = (
+            mock_home / "Documents" / "Adobe" / "Adobe Substance 3D Designer"
+            / "python" / "sduserplugins" / "dcc_bridge_launcher.py"
+        )
+        assert launcher.exists()
+
+    def test_launcher_execs_main_script(self, setup_instance, populated_registry, mock_home):
+        """launcher 内容应 exec 隔离子目录中的主脚本"""
+        setup_instance.setup("10.1")
+        launcher = (
+            mock_home / "Documents" / "Adobe" / "Adobe Substance 3D Designer"
+            / "python" / "sduserplugins" / "dcc_bridge_launcher.py"
+        )
+        content = launcher.read_text(encoding="utf-8")
+        assert "dcc_bridge_startup.py" in content
+        assert "execfile" in content
+        assert "__file__" not in content
+        assert setup_instance.get_startup_script_path("10.1", "en") in content
+
+    def test_unsetup_removes_launcher(self, setup_instance, populated_registry, mock_home):
+        """unsetup 应删除 launcher"""
+        setup_instance.setup("10.1")
+        launcher = (
+            mock_home / "Documents" / "Adobe" / "Adobe Substance 3D Designer"
+            / "python" / "sduserplugins" / "dcc_bridge_launcher.py"
+        )
+        assert launcher.exists()
+        setup_instance.unsetup("10.1")
+        assert not launcher.exists()
 
 
 # ==================== get_setup 工厂函数 ====================

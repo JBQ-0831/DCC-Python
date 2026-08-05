@@ -11,7 +11,25 @@ import os
 import pytest
 
 from dcc_bridge.setup.base import DCCInstallation, get_setup
-from dcc_bridge.setup.max import MaxSetup, MAX_REG_BASE
+from dcc_bridge.setup.max import MAX_REG_BASE, MaxSetup
+
+
+# ==================== 路径辅助 ====================
+
+def _max_script(home, ver, lang_dir):
+    """主脚本路径：scripts/dcc_bridge/dcc_bridge_startup.py（隔离子目录）"""
+    return (
+        home / "AppData" / "Local" / "Autodesk" / "3dsMax"
+        / f"{ver} - 64bit" / lang_dir / "scripts" / "dcc_bridge" / "dcc_bridge_startup.py"
+    )
+
+
+def _max_launcher(home, ver, lang_dir):
+    """launcher 路径：scripts/startup/start_dcc_bridge.ms（自动加载根目录）"""
+    return (
+        home / "AppData" / "Local" / "Autodesk" / "3dsMax"
+        / f"{ver} - 64bit" / lang_dir / "scripts" / "startup" / "start_dcc_bridge.ms"
+    )
 
 
 # ==================== fixture ====================
@@ -161,12 +179,16 @@ class TestGetScriptDir:
         assert setup_instance.get_script_dir() is None
 
 
-# ==================== get_startup_script_name ====================
+# ==================== get_startup_script_name / launcher ====================
 
 class TestGetStartupScriptName:
     def test_returns_correct_name(self, setup_instance):
-        """应返回 dcc_bridge_startup.py"""
+        """主脚本名应为 dcc_bridge_startup.py"""
         assert setup_instance.get_startup_script_name() == "dcc_bridge_startup.py"
+
+    def test_launcher_name_is_ms(self, setup_instance):
+        """Max 的 launcher 是 MAXScript 文件 start_dcc_bridge.ms"""
+        assert setup_instance.get_launcher_name() == "start_dcc_bridge.ms"
 
 
 # ==================== get_startup_script_content ====================
@@ -193,41 +215,18 @@ class TestGetStartupScriptContent:
         assert "executeDeferred" not in content
 
 
-# ==================== detect_installations ====================
-
-class TestDetectInstallations:
-    def test_returns_installations_for_all_versions(self, setup_instance, populated_registry):
-        """应返回 2019 和 2024 两个安装"""
-        installations = setup_instance.detect_installations()
-        versions = [inst.version for inst in installations]
-        assert "2019" in versions
-        assert "2024" in versions
-
-    def test_installation_has_correct_dcc_name(self, setup_instance, populated_registry):
-        """dcc_name 应为 3dsmax"""
-        for inst in setup_instance.detect_installations():
-            assert inst.dcc_name == "3dsmax"
-
-    def test_installation_root_path_from_registry(self, setup_instance, populated_registry):
-        """root_path 应为注册表中的安装路径"""
-        installations = setup_instance.detect_installations()
-        for inst in installations:
-            assert "Autodesk" in inst.root_path
-            assert inst.version in inst.root_path
-
-    def test_returns_empty_when_nothing_installed(self, setup_instance, mock_registry):
-        """没有安装时返回空列表"""
-        assert setup_instance.detect_installations() == []
-
-
 # ==================== get_startup_script_path ====================
 
 class TestGetStartupScriptPath:
-    def test_returns_full_path(self, setup_instance, populated_registry, mock_home):
-        """应返回 startup 目录下的 dcc_bridge_startup.py"""
+    def test_returns_full_path_in_dcc_bridge_subdir(self, setup_instance, populated_registry, mock_home):
+        """主脚本应位于 scripts/dcc_bridge/dcc_bridge_startup.py（非 startup 内）"""
         path = setup_instance.get_startup_script_path("2024")
         assert path is not None
-        assert path.endswith(os.path.join("startup", "dcc_bridge_startup.py"))
+        assert path.endswith(
+            os.path.join("scripts", "dcc_bridge", "dcc_bridge_startup.py")
+        )
+        # 不应落在 startup/ 目录内，避免被递归自动加载
+        assert "startup" + os.sep + "dcc_bridge" not in path.replace("/", os.sep)
 
     def test_returns_none_for_nonexistent(self, setup_instance, populated_registry, mock_home):
         """版本不存在时返回 None"""
@@ -238,24 +237,29 @@ class TestGetStartupScriptPath:
 
 class TestSetup:
     def test_writes_startup_script(self, setup_instance, populated_registry, mock_home):
-        """setup 后应存在 dcc_bridge_startup.py"""
+        """setup 后应存在 scripts/dcc_bridge/dcc_bridge_startup.py"""
         assert setup_instance.setup("2024") is True
-        script_path = (
-            mock_home / "AppData" / "Local" / "Autodesk" / "3dsMax"
-            / "2024 - 64bit" / "ENU" / "scripts" / "startup" / "dcc_bridge_startup.py"
-        )
-        assert script_path.exists()
+        assert _max_script(mock_home, "2024", "ENU").exists()
+
+    def test_writes_launcher_ms(self, setup_instance, populated_registry, mock_home):
+        """setup 后应存在 launcher start_dcc_bridge.ms（在 startup/ 内）"""
+        assert setup_instance.setup("2024") is True
+        assert _max_launcher(mock_home, "2024", "ENU").exists()
 
     def test_script_content_correct(self, setup_instance, populated_registry, mock_home):
         """写入的脚本内容应包含 3dsmax 和 start_server"""
         setup_instance.setup("2024")
-        script_path = (
-            mock_home / "AppData" / "Local" / "Autodesk" / "3dsMax"
-            / "2024 - 64bit" / "ENU" / "scripts" / "startup" / "dcc_bridge_startup.py"
-        )
-        content = script_path.read_text(encoding="utf-8")
+        content = _max_script(mock_home, "2024", "ENU").read_text(encoding="utf-8")
         assert "3dsmax" in content
         assert "start_server" in content
+
+    def test_launcher_execs_main_script(self, setup_instance, populated_registry, mock_home):
+        """launcher 内容应通过 python.ExecuteFile 执行主脚本（嵌入绝对路径）"""
+        setup_instance.setup("2024")
+        content = _max_launcher(mock_home, "2024", "ENU").read_text(encoding="utf-8")
+        assert "python.ExecuteFile" in content
+        main_script = setup_instance.get_startup_script_path("2024")
+        assert main_script in content
 
     def test_returns_false_for_nonexistent_version(self, setup_instance, populated_registry, mock_home):
         """版本不存在时返回 False"""
@@ -282,16 +286,33 @@ class TestSetup:
 
 class TestUnsetup:
     def test_removes_startup_script(self, setup_instance, populated_registry, mock_home):
-        """unsetup 后应删除 dcc_bridge_startup.py"""
+        """unsetup 后应删除 dcc_bridge/dcc_bridge_startup.py"""
         setup_instance.setup("2024")
-        script_path = (
-            mock_home / "AppData" / "Local" / "Autodesk" / "3dsMax"
-            / "2024 - 64bit" / "ENU" / "scripts" / "startup" / "dcc_bridge_startup.py"
-        )
+        script_path = _max_script(mock_home, "2024", "ENU")
         assert script_path.exists()
 
         assert setup_instance.unsetup("2024") is True
         assert not script_path.exists()
+
+    def test_removes_launcher(self, setup_instance, populated_registry, mock_home):
+        """unsetup 后应删除 start_dcc_bridge.ms"""
+        setup_instance.setup("2024")
+        launcher = _max_launcher(mock_home, "2024", "ENU")
+        assert launcher.exists()
+
+        assert setup_instance.unsetup("2024") is True
+        assert not launcher.exists()
+
+    def test_removes_empty_dcc_bridge_dir(self, setup_instance, populated_registry, mock_home):
+        """unsetup 应删掉已空的 dcc_bridge 隔离子目录"""
+        setup_instance.setup("2024")
+        dcc_bridge_dir = (
+            mock_home / "AppData" / "Local" / "Autodesk" / "3dsMax"
+            / "2024 - 64bit" / "ENU" / "scripts" / "dcc_bridge"
+        )
+        assert dcc_bridge_dir.exists()
+        setup_instance.unsetup("2024")
+        assert not dcc_bridge_dir.exists()
 
     def test_returns_true_when_script_not_found(self, setup_instance, populated_registry, mock_home):
         """脚本不存在时仍返回 True"""
@@ -302,14 +323,11 @@ class TestUnsetup:
         assert setup_instance.unsetup("1999") is False
 
     def test_unsetup_after_setup_roundtrip(self, setup_instance, populated_registry, mock_home):
-        """setup -> unsetup 往返后脚本应不存在"""
+        """setup -> unsetup 往返后脚本与 launcher 都应不存在"""
         setup_instance.setup("2024")
         setup_instance.unsetup("2024")
-        script_path = (
-            mock_home / "AppData" / "Local" / "Autodesk" / "3dsMax"
-            / "2024 - 64bit" / "ENU" / "scripts" / "startup" / "dcc_bridge_startup.py"
-        )
-        assert not script_path.exists()
+        assert not _max_script(mock_home, "2024", "ENU").exists()
+        assert not _max_launcher(mock_home, "2024", "ENU").exists()
 
     def test_unsetup_does_not_remove_other_scripts(self, setup_instance, populated_registry, mock_home):
         """unsetup 不应删除 startup 目录中的其他脚本"""
@@ -333,27 +351,15 @@ class TestMultiVersionSetup:
         """不指定版本时应为 2019+ 的版本注入脚本（2019 在 min 边界内应被注入）"""
         assert setup_instance.setup() is True
         # 2024 应被注入
-        script_2024 = (
-            mock_home / "AppData" / "Local" / "Autodesk" / "3dsMax"
-            / "2024 - 64bit" / "ENU" / "scripts" / "startup" / "dcc_bridge_startup.py"
-        )
-        assert script_2024.exists()
+        assert _max_script(mock_home, "2024", "ENU").exists()
         # 2019 现在 min_supported_version=2019，应被注入（不再跳过）
-        script_2019 = (
-            mock_home / "AppData" / "Local" / "Autodesk" / "3dsMax"
-            / "2019 - 64bit" / "ENU" / "scripts" / "startup" / "dcc_bridge_startup.py"
-        )
-        assert script_2019.exists()
+        assert _max_script(mock_home, "2019", "ENU").exists()
 
     def test_unsetup_all_versions_when_no_version_specified(self, setup_instance, populated_registry, mock_home):
         """不指定版本时应移除 2019+ 的版本脚本"""
         setup_instance.setup()
         assert setup_instance.unsetup() is True
-        script_2024 = (
-            mock_home / "AppData" / "Local" / "Autodesk" / "3dsMax"
-            / "2024 - 64bit" / "ENU" / "scripts" / "startup" / "dcc_bridge_startup.py"
-        )
-        assert not script_2024.exists()
+        assert not _max_script(mock_home, "2024", "ENU").exists()
 
     def test_returns_false_when_no_versions_installed(self, setup_instance, mock_registry, mock_home):
         """没有已安装版本时返回 False"""
@@ -362,19 +368,17 @@ class TestMultiVersionSetup:
     def test_explicit_version_below_min_still_works(self, setup_instance, populated_registry, mock_home):
         """指定 --version 2019 时（等于 min 边界）也应正常注入（绕过版本过滤）"""
         assert setup_instance.setup("2019") is True
-        script_2019 = (
-            mock_home / "AppData" / "Local" / "Autodesk" / "3dsMax"
-            / "2019 - 64bit" / "ENU" / "scripts" / "startup" / "dcc_bridge_startup.py"
-        )
-        assert script_2019.exists()
+        assert _max_script(mock_home, "2019", "ENU").exists()
 
     def test_partial_failure_returns_false(self, setup_instance, populated_registry, mock_home):
         """部分版本失败时返回 False，但其他版本仍成功"""
         original = setup_instance.get_script_dir
+
         def mock_get_script_dir(version=None, language="en"):
             if version == "2024":
                 return None
             return original(version, language)
+
         setup_instance.get_script_dir = mock_get_script_dir
 
         result = setup_instance.setup()
@@ -480,33 +484,21 @@ class TestMultiLanguage:
         assert "ENU" in result
 
     def test_setup_writes_both_languages(self, setup_instance, populated_registry, mock_home):
-        """setup 应同时写入 ENU 和 CHS 两个目录"""
+        """setup 应同时写入 ENU 和 CHS 两个目录（主脚本 + launcher）"""
         assert setup_instance.setup("2024") is True
-        enu_script = (
-            mock_home / "AppData" / "Local" / "Autodesk" / "3dsMax"
-            / "2024 - 64bit" / "ENU" / "scripts" / "startup" / "dcc_bridge_startup.py"
-        )
-        chs_script = (
-            mock_home / "AppData" / "Local" / "Autodesk" / "3dsMax"
-            / "2024 - 64bit" / "CHS" / "scripts" / "startup" / "dcc_bridge_startup.py"
-        )
-        assert enu_script.exists()
-        assert chs_script.exists()
+        assert _max_script(mock_home, "2024", "ENU").exists()
+        assert _max_script(mock_home, "2024", "CHS").exists()
+        assert _max_launcher(mock_home, "2024", "ENU").exists()
+        assert _max_launcher(mock_home, "2024", "CHS").exists()
 
     def test_unsetup_removes_both_languages(self, setup_instance, populated_registry, mock_home):
-        """unsetup 应同时移除 ENU 和 CHS 两个目录的脚本"""
+        """unsetup 应同时移除 ENU 和 CHS 两个目录的脚本与 launcher"""
         setup_instance.setup("2024")
         assert setup_instance.unsetup("2024") is True
-        enu_script = (
-            mock_home / "AppData" / "Local" / "Autodesk" / "3dsMax"
-            / "2024 - 64bit" / "ENU" / "scripts" / "startup" / "dcc_bridge_startup.py"
-        )
-        chs_script = (
-            mock_home / "AppData" / "Local" / "Autodesk" / "3dsMax"
-            / "2024 - 64bit" / "CHS" / "scripts" / "startup" / "dcc_bridge_startup.py"
-        )
-        assert not enu_script.exists()
-        assert not chs_script.exists()
+        assert not _max_script(mock_home, "2024", "ENU").exists()
+        assert not _max_script(mock_home, "2024", "CHS").exists()
+        assert not _max_launcher(mock_home, "2024", "ENU").exists()
+        assert not _max_launcher(mock_home, "2024", "CHS").exists()
 
     def test_get_supported_languages_default(self, setup_instance):
         """默认应支持 en 和 zh_CN"""

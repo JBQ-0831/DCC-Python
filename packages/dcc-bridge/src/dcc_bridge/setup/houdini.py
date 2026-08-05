@@ -11,7 +11,8 @@ Houdini 自启动注入器
   3. 由安装目录拼接出内置 Python 解释器路径（python3X/python.exe）。
   4. 运行 Python 解释器查询其版本（如 "3.13"），用于拼接脚本目录。
   5. 启动脚本目录：~/Documents/houdini<version>/python<pythonversion>libs
-  6. 启动脚本文件名固定为 uiready.py（已重写 get_startup_script_name）。
+  6. launcher 文件名固定为 uiready.py（Houdini 约定 UI 就绪时执行），主脚本位于
+     pythonX.Ylibs/dcc_bridge/ 隔离子目录，避免被自动加载导致双启动。
 """
 
 from __future__ import annotations
@@ -42,7 +43,8 @@ class HoudiniSetup(DCCSetup):
       InstallPath = "C:\\Program Files\\Side Effects Software\\Houdini 19.5.773"
       Version     = "19.5.773"
     脚本目录：  ~/Documents/houdini<X.Y>/python<pyver>libs
-    启动脚本：  uiready.py
+    主脚本：    python<pyver>libs/dcc_bridge/dcc_bridge_startup.py
+    launcher：  python<pyver>libs/uiready.py（Houdini 约定 UI 就绪时执行）
     """
 
     dcc_name = "houdini"
@@ -169,8 +171,12 @@ class HoudiniSetup(DCCSetup):
         """Houdini 的 pythonX.Ylibs 目录不随语言变化，只注入一份即可"""
         return ["en"]
 
-    def get_startup_script_name(self) -> str:
-        """Houdini 的启动脚本固定命名为 uiready.py"""
+    def get_launcher_name(self) -> str | None:
+        """Houdini 的 launcher 用 uiready.py（约定 UI 就绪时被执行）。
+
+        launcher 位于 pythonX.Ylibs 自动加载目录，显式 exec 隔离子目录中的主脚本；
+        主脚本本身在 pythonX.Ylibs/dcc_bridge/ 内，不会被自动执行，避免双启动。
+        """
         return "uiready.py"
 
 

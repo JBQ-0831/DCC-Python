@@ -26,6 +26,15 @@ _MAX_LANG_DIR = {
     "zh_CN": "CHS",
 }
 
+# Max launcher 模板（MAXScript）：显式用 python.ExecuteFile 执行主脚本。
+# 主脚本绝对路径由 get_startup_script_path 计算后嵌入，确保与写入位置一致。
+# @"" 为 MAXScript 逐字字符串，反斜杠不转义。
+_MAX_LAUNCHER_MS_TEMPLATE = '''\
+-- DCC Bridge launcher (auto-generated)
+-- Remove with: dcc unsetup {dcc_name}
+python.ExecuteFile @"{main_script}"
+'''
+
 
 class MaxSetup(DCCSetup):
     """
@@ -114,3 +123,38 @@ class MaxSetup(DCCSetup):
         if int(version) < 2020:
             return os.path.join(install_path, "3dsmaxpy.exe")
         return os.path.join(install_path, "Python", "python.exe")
+
+    def get_launcher_name(self) -> str | None:
+        """Max 的 launcher 是放在自动加载根目录 startup/ 下的 MAXScript 文件。"""
+        return "start_dcc_bridge.ms"
+
+    def get_startup_script_path(
+        self, version: str | None = None, language: str = "en"
+    ) -> str | None:
+        """主脚本写入 scripts/dcc_bridge/（startup 的上级 scripts 目录）。
+
+        这样主脚本不会落在 startup/ 内被 Max 递归自动加载，从而避免双启动；
+        launcher（start_dcc_bridge.ms）才放在 startup/ 中显式启动它。
+        """
+        script_dir = self.get_script_dir(version, language)
+        if script_dir is None:
+            return None
+        scripts_root = os.path.dirname(script_dir)
+        return os.path.join(scripts_root, self.bridge_subdir, self.get_startup_script_name())
+
+    def get_launcher_content(
+        self, version: str | None = None, language: str = "en"
+    ) -> str:
+        """生成 MAXScript launcher：显式用 python.ExecuteFile 执行主脚本。
+
+        主脚本的绝对路径由 get_startup_script_path 计算后嵌入，确保与写入位置一致
+        （Max 的 GetDir #userScripts 指向 Documents 目录，与本工具实际写入的
+        AppData/Local 路径不同，不能依赖它）。
+        """
+        main_script = self.get_startup_script_path(version, language)
+        if main_script is None:
+            return ""
+        return _MAX_LAUNCHER_MS_TEMPLATE.format(
+            dcc_name=self.dcc_name,
+            main_script=main_script,
+        )

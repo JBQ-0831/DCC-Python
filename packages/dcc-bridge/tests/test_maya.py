@@ -11,7 +11,26 @@ import os
 import pytest
 
 from dcc_bridge.setup.base import DCCInstallation, get_setup
-from dcc_bridge.setup.maya import MayaSetup, STARTUP_MODULE_NAME, MAYA_REG_BASE
+from dcc_bridge.setup.maya import (
+    MAYA_REG_BASE,
+    MayaSetup,
+    _BLOCK_END,
+    _BLOCK_START,
+)
+
+
+# ==================== 启动块断言辅助 ====================
+
+def _assert_block_in(content: str) -> None:
+    """userSetup.py 中应包含 dcc-bridge 的 exec 启动块。"""
+    assert _BLOCK_START in content
+    assert "dcc_bridge_startup.py" in content
+    assert "execfile" in content
+
+
+def _assert_block_not_in(content: str) -> None:
+    """userSetup.py 中不应再有 dcc-bridge 的 exec 启动块。"""
+    assert _BLOCK_START not in content
 
 
 # ==================== fixture ====================
@@ -63,6 +82,14 @@ def mock_home(tmp_path, monkeypatch):
 @pytest.fixture
 def setup_instance():
     return MayaSetup()
+
+
+def _main_script(home, ver, lang=""):
+    parts = ["Documents", "maya", ver, "scripts"]
+    if lang:
+        parts = ["Documents", "maya", ver, lang, "scripts"]
+    parts += ["dcc_bridge", "dcc_bridge_startup.py"]
+    return home.joinpath(*parts)
 
 
 # ==================== discover_versions ====================
@@ -157,8 +184,12 @@ class TestGetScriptDir:
 
 class TestGetStartupScriptName:
     def test_returns_correct_name(self, setup_instance):
-        """应返回 dcc_bridge_startup.py"""
+        """Maya 不重写主脚本名，应返回 dcc_bridge_startup.py"""
         assert setup_instance.get_startup_script_name() == "dcc_bridge_startup.py"
+
+    def test_launcher_name_is_none(self, setup_instance):
+        """Maya 不写独立 launcher 文件，get_launcher_name 返回 None"""
+        assert setup_instance.get_launcher_name() is None
 
 
 # ==================== get_startup_script_content ====================
@@ -222,10 +253,12 @@ class TestDetectInstallations:
 
 class TestGetStartupScriptPath:
     def test_returns_full_path(self, setup_instance, populated_registry, mock_home):
-        """应返回 scripts 目录下的 dcc_bridge_startup.py"""
+        """应返回 scripts/dcc_bridge/dcc_bridge_startup.py（隔离子目录）"""
         path = setup_instance.get_startup_script_path("2024")
         assert path is not None
-        assert path.endswith(os.path.join("scripts", "dcc_bridge_startup.py"))
+        assert path.endswith(
+            os.path.join("scripts", "dcc_bridge", "dcc_bridge_startup.py")
+        )
 
     def test_returns_none_for_nonexistent(self, setup_instance, populated_registry, mock_home):
         """版本不存在时返回 None"""
@@ -236,33 +269,30 @@ class TestGetStartupScriptPath:
 
 class TestSetup:
     def test_writes_startup_script(self, setup_instance, populated_registry, mock_home):
-        """setup 后应存在 dcc_bridge_startup.py"""
+        """setup 后应存在 dcc_bridge/dcc_bridge_startup.py"""
         assert setup_instance.setup("2024") is True
-        script_path = mock_home / "Documents" / "maya" / "2024" / "scripts" / "dcc_bridge_startup.py"
-        assert script_path.exists()
+        assert _main_script(mock_home, "2024").exists()
 
     def test_script_content_correct(self, setup_instance, populated_registry, mock_home):
         """写入的脚本内容应包含 maya 和 start_server"""
         setup_instance.setup("2024")
-        script_path = mock_home / "Documents" / "maya" / "2024" / "scripts" / "dcc_bridge_startup.py"
-        content = script_path.read_text(encoding="utf-8")
+        content = _main_script(mock_home, "2024").read_text(encoding="utf-8")
         assert "maya" in content
         assert "start_server" in content
 
     def test_modifies_user_setup(self, setup_instance, populated_registry, mock_home):
-        """setup 后 userSetup.py 应包含 import 行"""
+        """setup 后 userSetup.py 应包含 exec 启动块"""
         setup_instance.setup("2024")
         usersetup = mock_home / "Documents" / "maya" / "2024" / "scripts" / "userSetup.py"
-        assert usersetup.exists()
-        assert f"import {STARTUP_MODULE_NAME}" in usersetup.read_text(encoding="utf-8")
+        _assert_block_in(usersetup.read_text(encoding="utf-8"))
 
     def test_idempotent_user_setup(self, setup_instance, populated_registry, mock_home):
-        """多次 setup 不应重复添加 import 行"""
+        """多次 setup 不应重复添加启动块"""
         setup_instance.setup("2024")
         setup_instance.setup("2024")
         usersetup = mock_home / "Documents" / "maya" / "2024" / "scripts" / "userSetup.py"
         content = usersetup.read_text(encoding="utf-8")
-        assert content.count(f"import {STARTUP_MODULE_NAME}") == 1
+        assert content.count(_BLOCK_START) == 1
 
     def test_preserves_existing_user_setup_content(self, setup_instance, populated_registry, mock_home):
         """setup 应保留 userSetup.py 中的已有内容"""
@@ -273,14 +303,14 @@ class TestSetup:
         setup_instance.setup("2024")
         content = usersetup.read_text(encoding="utf-8")
         assert "print('existing')" in content
-        assert f"import {STARTUP_MODULE_NAME}" in content
+        _assert_block_in(content)
 
     def test_returns_false_for_nonexistent_version(self, setup_instance, populated_registry, mock_home):
         """版本不存在时返回 False"""
         assert setup_instance.setup("1999") is False
 
     def test_appends_to_user_setup_without_newline(self, setup_instance, populated_registry, mock_home):
-        """userSetup.py 末尾无换行时应自动补换行再追加"""
+        """userSetup.py 末尾无换行时应自动补换行再追加启动块"""
         usersetup = mock_home / "Documents" / "maya" / "2024" / "scripts" / "userSetup.py"
         usersetup.parent.mkdir(parents=True, exist_ok=True)
         usersetup.write_text("print('no newline')", encoding="utf-8")
@@ -289,29 +319,30 @@ class TestSetup:
         content = usersetup.read_text(encoding="utf-8")
         lines = content.split("\n")
         assert "print('no newline')" in lines[0]
-        assert f"import {STARTUP_MODULE_NAME}" in lines[1]
+        # 启动块标记应出现在第 2 行（原内容之后）
+        assert _BLOCK_START in lines[1]
 
 
 # ==================== unsetup ====================
 
 class TestUnsetup:
     def test_removes_startup_script(self, setup_instance, populated_registry, mock_home):
-        """unsetup 后应删除 dcc_bridge_startup.py"""
+        """unsetup 后应删除 dcc_bridge/dcc_bridge_startup.py"""
         setup_instance.setup("2024")
-        script_path = mock_home / "Documents" / "maya" / "2024" / "scripts" / "dcc_bridge_startup.py"
+        script_path = _main_script(mock_home, "2024")
         assert script_path.exists()
 
         assert setup_instance.unsetup("2024") is True
         assert not script_path.exists()
 
-    def test_removes_import_from_user_setup(self, setup_instance, populated_registry, mock_home):
-        """unsetup 后 userSetup.py 中不应再有 import 行"""
+    def test_removes_block_from_user_setup(self, setup_instance, populated_registry, mock_home):
+        """unsetup 后 userSetup.py 中不应再有启动块"""
         setup_instance.setup("2024")
         usersetup = mock_home / "Documents" / "maya" / "2024" / "scripts" / "userSetup.py"
-        assert f"import {STARTUP_MODULE_NAME}" in usersetup.read_text(encoding="utf-8")
+        _assert_block_in(usersetup.read_text(encoding="utf-8"))
 
         setup_instance.unsetup("2024")
-        assert f"import {STARTUP_MODULE_NAME}" not in usersetup.read_text(encoding="utf-8")
+        _assert_block_not_in(usersetup.read_text(encoding="utf-8"))
 
     def test_preserves_other_user_setup_content(self, setup_instance, populated_registry, mock_home):
         """unsetup 应保留 userSetup.py 中的其他内容"""
@@ -324,7 +355,7 @@ class TestUnsetup:
 
         content = usersetup.read_text(encoding="utf-8")
         assert "print('keep me')" in content
-        assert f"import {STARTUP_MODULE_NAME}" not in content
+        _assert_block_not_in(content)
 
     def test_returns_true_when_script_not_found(self, setup_instance, populated_registry, mock_home):
         """脚本不存在时仍返回 True"""
@@ -350,24 +381,21 @@ class TestMultiVersionSetup:
         """不指定版本时应为所有 2018+ 的已安装版本注入脚本"""
         assert setup_instance.setup() is True
         for ver in ("2022", "2024"):
-            script_path = mock_home / "Documents" / "maya" / ver / "scripts" / "dcc_bridge_startup.py"
-            assert script_path.exists(), f"startup script not found for {ver}"
+            assert _main_script(mock_home, ver).exists(), f"startup script not found for {ver}"
 
     def test_unsetup_all_versions_when_no_version_specified(self, setup_instance, populated_registry, mock_home):
         """不指定版本时应移除所有 2018+ 的已安装版本脚本"""
         setup_instance.setup()
         assert setup_instance.unsetup() is True
         for ver in ("2022", "2024"):
-            script_path = mock_home / "Documents" / "maya" / ver / "scripts" / "dcc_bridge_startup.py"
-            assert not script_path.exists(), f"startup script not removed for {ver}"
+            assert not _main_script(mock_home, ver).exists(), f"startup script not removed for {ver}"
 
     def test_setup_all_versions_modifies_user_setup(self, setup_instance, populated_registry, mock_home):
         """不指定版本时所有版本的 userSetup.py 都应被修改"""
         setup_instance.setup()
         for ver in ("2022", "2024"):
             usersetup = mock_home / "Documents" / "maya" / ver / "scripts" / "userSetup.py"
-            assert usersetup.exists()
-            assert f"import {STARTUP_MODULE_NAME}" in usersetup.read_text(encoding="utf-8")
+            _assert_block_in(usersetup.read_text(encoding="utf-8"))
 
     def test_returns_false_when_no_versions_installed(self, setup_instance, mock_registry, mock_home):
         """没有已安装版本时返回 False"""
@@ -388,14 +416,11 @@ class TestMultiVersionSetup:
         }
         assert setup_instance.setup() is True
         # 2024 应被注入
-        script_2024 = mock_home / "Documents" / "maya" / "2024" / "scripts" / "dcc_bridge_startup.py"
-        assert script_2024.exists()
+        assert _main_script(mock_home, "2024").exists()
         # 2018 现在 min_supported_version=2018，应被注入
-        script_2018 = mock_home / "Documents" / "maya" / "2018" / "scripts" / "dcc_bridge_startup.py"
-        assert script_2018.exists()
+        assert _main_script(mock_home, "2018").exists()
         # 2017 低于 min，应被跳过
-        script_2017 = mock_home / "Documents" / "maya" / "2017" / "scripts" / "dcc_bridge_startup.py"
-        assert not script_2017.exists()
+        assert not _main_script(mock_home, "2017").exists()
 
     def test_explicit_version_below_min_still_works(self, setup_instance, mock_registry, mock_home):
         """指定 --version 2018 时（等于 min 边界）也应正常注入（绕过版本过滤）"""
@@ -405,23 +430,23 @@ class TestMultiVersionSetup:
             "MAYA_INSTALL_LOCATION": r"C:\Program Files\Autodesk\Maya2018\\",
         }
         assert setup_instance.setup("2018") is True
-        script_2018 = mock_home / "Documents" / "maya" / "2018" / "scripts" / "dcc_bridge_startup.py"
-        assert script_2018.exists()
+        assert _main_script(mock_home, "2018").exists()
 
     def test_partial_failure_returns_false(self, setup_instance, populated_registry, mock_home):
         """部分版本失败时返回 False，但其他版本仍成功"""
         original = setup_instance.get_script_dir
+
         def mock_get_script_dir(version=None, language="en"):
             if version == "2022":
                 return None
             return original(version, language)
+
         setup_instance.get_script_dir = mock_get_script_dir
 
         result = setup_instance.setup()
         assert result is False  # 2022 失败
         # 2024 仍应成功
-        script_2024 = mock_home / "Documents" / "maya" / "2024" / "scripts" / "dcc_bridge_startup.py"
-        assert script_2024.exists()
+        assert _main_script(mock_home, "2024").exists()
 
 
 class TestGetTargetVersions:
@@ -456,24 +481,32 @@ class TestGetTargetVersions:
 
 class TestPostHooks:
     def test_post_setup_creates_user_setup(self, setup_instance, tmp_path):
-        """_post_setup 应创建或修改 userSetup.py"""
+        """_post_setup 应创建或修改 userSetup.py 并写入启动块"""
         scripts_dir = tmp_path / "scripts"
         scripts_dir.mkdir()
         setup_instance._post_setup(str(scripts_dir))
         usersetup = scripts_dir / "userSetup.py"
         assert usersetup.exists()
-        assert f"import {STARTUP_MODULE_NAME}" in usersetup.read_text(encoding="utf-8")
+        _assert_block_in(usersetup.read_text(encoding="utf-8"))
 
-    def test_post_unsetup_removes_import(self, setup_instance, tmp_path):
-        """_post_unsetup 应从 userSetup.py 移除 import 行"""
+    def test_post_unsetup_removes_block(self, setup_instance, tmp_path):
+        """_post_unsetup 应从 userSetup.py 移除启动块（保留其他内容）"""
         scripts_dir = tmp_path / "scripts"
         scripts_dir.mkdir()
         usersetup = scripts_dir / "userSetup.py"
-        usersetup.write_text(f"import {STARTUP_MODULE_NAME}\nprint('keep')\n", encoding="utf-8")
+        usersetup.write_text(
+            _BLOCK_START + "\n"
+            "import os as _db_os\n"
+            "_db_script = r\"C:/fake/maya/scripts/dcc_bridge/dcc_bridge_startup.py\"\n"
+            "execfile(_db_script)\n"
+            + _BLOCK_END + "\n"
+            "print('keep')\n",
+            encoding="utf-8",
+        )
 
         setup_instance._post_unsetup(str(scripts_dir))
         content = usersetup.read_text(encoding="utf-8")
-        assert f"import {STARTUP_MODULE_NAME}" not in content
+        _assert_block_not_in(content)
         assert "print('keep')" in content
 
     def test_post_unsetup_when_no_user_setup(self, setup_instance, tmp_path):
@@ -515,38 +548,34 @@ class TestMultiLanguage:
     def test_setup_writes_both_languages(self, setup_instance, populated_registry, mock_home):
         """setup 应同时写入英文和中文两个脚本目录"""
         assert setup_instance.setup("2024") is True
-        en_script = mock_home / "Documents" / "maya" / "2024" / "scripts" / "dcc_bridge_startup.py"
-        zh_script = mock_home / "Documents" / "maya" / "2024" / "zh_CN" / "scripts" / "dcc_bridge_startup.py"
-        assert en_script.exists()
-        assert zh_script.exists()
+        assert _main_script(mock_home, "2024").exists()
+        assert _main_script(mock_home, "2024", "zh_CN").exists()
 
     def test_setup_modifies_user_setup_both_languages(self, setup_instance, populated_registry, mock_home):
         """两个语言的 userSetup.py 都应被修改"""
         setup_instance.setup("2024")
         en_usersetup = mock_home / "Documents" / "maya" / "2024" / "scripts" / "userSetup.py"
         zh_usersetup = mock_home / "Documents" / "maya" / "2024" / "zh_CN" / "scripts" / "userSetup.py"
-        assert f"import {STARTUP_MODULE_NAME}" in en_usersetup.read_text(encoding="utf-8")
-        assert f"import {STARTUP_MODULE_NAME}" in zh_usersetup.read_text(encoding="utf-8")
+        _assert_block_in(en_usersetup.read_text(encoding="utf-8"))
+        _assert_block_in(zh_usersetup.read_text(encoding="utf-8"))
 
     def test_unsetup_removes_both_languages(self, setup_instance, populated_registry, mock_home):
         """unsetup 应同时移除英文和中文两个目录的脚本"""
         setup_instance.setup("2024")
         assert setup_instance.unsetup("2024") is True
-        en_script = mock_home / "Documents" / "maya" / "2024" / "scripts" / "dcc_bridge_startup.py"
-        zh_script = mock_home / "Documents" / "maya" / "2024" / "zh_CN" / "scripts" / "dcc_bridge_startup.py"
-        assert not en_script.exists()
-        assert not zh_script.exists()
+        assert not _main_script(mock_home, "2024").exists()
+        assert not _main_script(mock_home, "2024", "zh_CN").exists()
 
-    def test_unsetup_removes_import_both_languages(self, setup_instance, populated_registry, mock_home):
-        """unsetup 后两个语言的 userSetup.py 都应移除 import 行"""
+    def test_unsetup_removes_block_both_languages(self, setup_instance, populated_registry, mock_home):
+        """unsetup 后两个语言的 userSetup.py 都应移除启动块"""
         setup_instance.setup("2024")
         setup_instance.unsetup("2024")
         en_usersetup = mock_home / "Documents" / "maya" / "2024" / "scripts" / "userSetup.py"
         zh_usersetup = mock_home / "Documents" / "maya" / "2024" / "zh_CN" / "scripts" / "userSetup.py"
         if en_usersetup.exists():
-            assert f"import {STARTUP_MODULE_NAME}" not in en_usersetup.read_text(encoding="utf-8")
+            _assert_block_not_in(en_usersetup.read_text(encoding="utf-8"))
         if zh_usersetup.exists():
-            assert f"import {STARTUP_MODULE_NAME}" not in zh_usersetup.read_text(encoding="utf-8")
+            _assert_block_not_in(zh_usersetup.read_text(encoding="utf-8"))
 
     def test_get_supported_languages_default(self, setup_instance):
         """默认应支持 en 和 zh_CN"""
