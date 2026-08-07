@@ -10,3 +10,7 @@ venv
 *.vsix
 .trae
 .workbuddy
+# 本地 IDE/工具产生的文件，不入库
+.codebuddy.workbuddy
+_pytest_tmp.log
+# 注：.codebuddy 已覆盖 packages/*/.codebuddy 子目录，无需重复
