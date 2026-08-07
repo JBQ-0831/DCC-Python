@@ -3,7 +3,14 @@ import sys
 
 import pytest
 
-from dcc_bridge.execute import _safe_emit, execute_code, handle_exception
+from dcc_bridge.execute import (
+    _safe_emit,
+    execute_code,
+    find_package,
+    get_exec_globals,
+    handle_exception,
+    main,
+)
 
 
 def test_execute_code_runs_normal_code():
@@ -62,3 +69,64 @@ def test_handle_exception_does_not_crash_on_bad_stdout():
         pytest.fail("handle_exception should swallow emit errors, but raised: " + repr(exc))
     finally:
         sys.stdout = old
+
+
+class TestPackageNonStringRegression:
+    """回归：Maya 2018 (py2.7) 下 __package__ = "" 触发 ValueError。
+
+    根因：文件执行线 main() 原无条件写 __package__ = find_package(...)，顶层脚本
+    （不在任何 sys.path 包前缀下）返回 ""，被 Maya 2018 魔改 import 判为非法。
+    修复：空串 pop 掉、走 __name__ 兜底；execute_code 入口也兜底清空串。
+    边界：只动 __package__ 这一个键，用户变量（共享字典 __VsCodeVariables__）不受影响，
+    保证「选中单行记住上次变量」的需求不被破坏。
+    """
+
+    def _clean_pkg(self):
+        # 隔离：每个用例开头清掉共享 globals 里可能残留的 __package__，避免相互干扰
+        get_exec_globals().pop("__package__", None)
+
+    def test_find_package_top_level_returns_empty(self):
+        # 根因实证：不在任何 sys.path 前缀下的文件，find_package 返回空串
+        import os
+        import tempfile
+
+        fd, path = tempfile.mkstemp(suffix=".py")
+        os.close(fd)
+        try:
+            assert find_package(path) == ""
+        finally:
+            os.remove(path)
+
+    def test_main_pops_empty_package_for_top_level_script(self, tmp_path):
+        # 文件执行线：顶层脚本的 __package__ 应为空（被 pop），且 import 不报错
+        script = tmp_path / "1.py"
+        script.write_text("import sys\nprint(sys.path)\n", encoding="utf-8")
+        # tmp_path 不在 sys.path 包前缀下 -> find_package 返回 "" -> pop
+        self._clean_pkg()
+        main(str(script), str(script))  # 不应抛 ValueError
+        assert "__package__" not in get_exec_globals()
+
+    def test_main_keeps_user_vars(self, tmp_path):
+        # 需求保住：文件执行写入的用户变量仍留在共享字典
+        script = tmp_path / "var.py"
+        script.write_text("a = 1\nimport sys\n", encoding="utf-8")
+        self._clean_pkg()
+        main(str(script), str(script))
+        assert get_exec_globals().get("a") == 1
+
+    def test_execute_code_pops_empty_package_and_keeps_user_vars(self):
+        # 选中单行线：残留空串 __package__ 被 pop，且用户变量不丢
+        g = dict(get_exec_globals())  # 独立副本，隔离单例
+        g["__package__"] = ""  # 模拟 Maya 2018 残留
+        execute_code("import sys\n", "<t>", False, exec_globals=g)
+        assert "__package__" not in g  # 空串被 pop
+        execute_code("b = 7\n", "<t2>", False, exec_globals=g)
+        assert g["b"] == 7  # 用户变量保住
+
+    def test_var_memory_across_executions(self):
+        # 需求保住回归：先 a = 1 再 print(a) 仍能拿到（选中单行记住上次变量）
+        g = dict(get_exec_globals())  # 独立副本，隔离单例
+        self._clean_pkg()
+        execute_code("a = 1\n", "<f1>", False, exec_globals=g)
+        execute_code("print(a)\n", "<f2>", False, exec_globals=g)  # 不应抛 NameError
+        assert g.get("a") == 1

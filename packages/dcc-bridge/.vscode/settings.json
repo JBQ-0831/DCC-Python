@@ -11,6 +11,8 @@
         "**/.trae":true,
         "**/.pytest_cache":true,
         "**/.forgejo":true,
+        "**/*.pyc":true,
+        "**/*.pyd":true,
     },
     "search.exclude": {
         // "out": true, 
@@ -21,5 +23,6 @@
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
+    "ruff.lint.enable": false,
 
 }

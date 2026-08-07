@@ -89,7 +89,6 @@ class MayaAdapter(DCCAdapter):
             from maya import cmds as cm
 
             version = cm.about(version=True)
-            print(version)
             return version
         except Exception:
             # 暴露真实异常，便于排查（如早期调用 about 抛错、cmds 导入失败等）

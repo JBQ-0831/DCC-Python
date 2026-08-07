@@ -202,14 +202,18 @@ dcc setup blender
 
 #### 注入位置
 
-| DCC | 注入路径 | 额外操作 |
+主脚本统一写入自动加载目录下的 `dcc_bridge/` **隔离子目录**，自动加载根目录只放一个极小的 launcher 显式 `exec` 主脚本。这样可避免 DCC 递归自动执行整个自启动目录导致服务被启动两次（双启动）。
+
+| DCC | 主脚本路径（隔离子目录） | Launcher |
 |---|---|---|
-| Maya | `~/maya/<version>/scripts/dcc_bridge_startup.py` | 在 `userSetup.py` 中追加 `import dcc_bridge_startup` |
-| 3ds Max | `~/AppData/Local/Autodesk/3dsMax/<year> - 64bit/ENU/scripts/startup/dcc_bridge_startup.py` | 无（Max 自动加载 startup 目录） |
-| Substance Painter | 应用脚本目录 | 自动启动入口注入 |
-| Substance Designer | 应用脚本目录 | 自动启动入口注入 |
-| Houdini | `~/Documents/houdini<version>/python<pythonversion>libs/uiready.py` | 无需额外配置（Houdini 自动加载该目录） |
-| Blender | 应用脚本目录 | 自动启动入口注入 |
+| Maya | `~/Documents/maya/<version>/scripts/dcc_bridge/dcc_bridge_startup.py` | `scripts/userSetup.py` 内注入 exec 启动块（写死主脚本绝对路径） |
+| 3ds Max | `~/AppData/Local/Autodesk/3dsMax/<year> - 64bit/<lang>/scripts/dcc_bridge/dcc_bridge_startup.py` | `scripts/startup/start_dcc_bridge.ms`（MAXScript，`python.ExecuteFile` 主脚本） |
+| Substance Painter | `~/Documents/Adobe/Adobe Substance 3D Painter/python/startup/dcc_bridge/dcc_bridge_startup.py` | `python/startup/dcc_bridge_launcher.py` |
+| Substance Designer | `~/Documents/Adobe/Adobe Substance 3D Designer/python/sduserplugins/dcc_bridge/dcc_bridge_startup.py` | `python/sduserplugins/dcc_bridge_launcher.py` |
+| Houdini | `~/Documents/houdini<X.Y>/python<pyver>libs/dcc_bridge/dcc_bridge_startup.py` | `python<pyver>libs/uiready.py`（UI 就绪时执行） |
+| Blender | `%APPDATA%/Blender Foundation/Blender/<version>/scripts/startup/dcc_bridge/dcc_bridge_startup.py` | `scripts/startup/dcc_bridge_launcher.py` |
+
+> Launcher 内的主脚本路径为**写死绝对路径**，因为 Maya `userSetup.py` / Houdini `uiready.py` 等被 DCC 当作脚本 `exec` 进内置命名空间执行时并不提供 `__file__` 变量。
 
 #### 版本发现机制
 
@@ -222,7 +226,7 @@ dcc setup blender
 | Substance Painter | 注册表/安装路径 | 自动发现 |
 | Substance Designer | 注册表/安装路径 | 自动发现 |
 | Houdini | `HKLM\SOFTWARE\Side Effects Software\Houdini <X.Y.Z>` | 子键名中的版本号（如 `19.5`、`22.0`） |
-| Blender | 安装路径扫描 | 自动发现 |
+| Blender | 安装路径扫描 | 自动发现（2.7+） |
 
 ---
 
@@ -461,12 +465,32 @@ with resolve_client(dcc_name="maya") as client:
 
 | DCC | 状态 | 版本发现 | 自启动注入 |
 |---|---|---|---|
-| Maya | 完整支持 | 注册表 | `userSetup.py` + `dcc_bridge_startup.py` |
-| 3ds Max | 完整支持 | 注册表 | `scripts/startup/dcc_bridge_startup.py` |
-| Substance Painter | 支持 | 注册表/安装路径 | 自动启动入口注入 |
-| Substance Designer | 支持 | 注册表/安装路径 | 自动启动入口注入 |
-| Houdini | 支持 | 注册表 | `uiready.py` |
-| Blender | 支持 | 安装路径 | 自动启动入口注入 |
+| Maya | 完整支持 | 注册表 | `scripts/dcc_bridge/dcc_bridge_startup.py` + `userSetup.py` 内 exec 启动块 |
+| 3ds Max | 完整支持 | 注册表 | `scripts/dcc_bridge/dcc_bridge_startup.py` + `scripts/startup/start_dcc_bridge.ms` |
+| Substance Painter | 支持 | 注册表/安装路径 | `python/startup/dcc_bridge/` + `python/startup/dcc_bridge_launcher.py` |
+| Substance Designer | 支持 | 注册表/安装路径 | `python/sduserplugins/dcc_bridge/` + `python/sduserplugins/dcc_bridge_launcher.py` |
+| Houdini | 支持 | 注册表 | `python<pyver>libs/dcc_bridge/` + `python<pyver>libs/uiready.py` |
+| Blender | 2.7+ 支持 | 安装路径 | `scripts/startup/dcc_bridge/` + `scripts/startup/dcc_bridge_launcher.py` |
+
+---
+
+## Python 2.7 与自启动注入机制
+
+### Python 2.7 DCC 支持
+
+本工具同时支持自带 **Python 2.7** 的旧版 DCC（如 Maya ≤ 2020、3ds Max ≤ 2020）与 Python 3.x 的新版 DCC。
+
+- 代码执行、模块热重载、服务发现对 py2/py3 DCC 均可用。
+- **debugpy 不支持 Python 2.x**，因此 `dcc setup` 在检测到目标 DCC 的 Python 为 2.x 时，仅注入自启动脚本、**不安装 debugpy**；`dcc unsetup` 同样跳过 debugpy 卸载。
+- 在 py2 宿主中运行前，服务会自动把 `stdout/stderr` 替换为自适应转码包装流（`dcc_bridge.compat._Py2UnicodeWriter`），避免 `print` 含非 ASCII 字节时直接崩溃。
+
+### 自启动注入如何避免双启动
+
+DCC 在启动时会**递归自动执行**其自启动目录下的所有脚本。如果主脚本直接放在自启动根目录，再加上一个 launcher，服务会被启动两次。为规避此问题：
+
+- 主脚本固定写入自动加载目录下的 `dcc_bridge/` **隔离子目录**（如 Maya 的 `scripts/dcc_bridge/`、Max 的 `scripts/dcc_bridge/`），该子目录不会被 DCC 当作自启动入口递归执行。
+- 自动加载根目录只放一个极小的 launcher，显式 `exec` 隔离子目录中的主脚本。
+- launcher 内主脚本路径采用**写死绝对路径**（由 `dcc setup` 计算后嵌入），因为 Maya `userSetup.py`、Houdini `uiready.py` 等被 DCC 当脚本 `exec` 进内置命名空间执行时**不提供 `__file__` 变量**，不能用 `__file__` 做相对定位。
 
 ---
 

@@ -96,7 +96,6 @@ class MaxAdapter(DCCAdapter):
 
             version_array = pymxs.runtime.maxVersion()
             version = str(version_array[0] // 1000 + 1998)  # 26000 -> 2024
-            print(version)
             return version
         except Exception:
             return super(MaxAdapter, self).get_version()

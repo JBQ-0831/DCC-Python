@@ -16,6 +16,10 @@ class Logger {
         Logger.channel.info(`[Python] ${message.trimEnd()}`);
     }
 
+    static debug(message: string): void {
+        Logger.channel.debug(message);
+    }
+
     static info(message: string): void {
         Logger.channel.info(message);
     }

@@ -18,11 +18,15 @@ pip install dcc-bridge
 
 在 VS Code 中按 `Ctrl + Enter` 将选中代码发送到 DCC 执行；未选中时执行整个文件。
 
+执行失败时，输出面板会显示错误信息与完整回溯（traceback）并弹出错误提示；执行成功时正常打印输出。
+
 ### 附加调试器
 
 `DCC Python ToolKit: Attach Debugger` 在 DCC 中启动 debugpy 调试服务，并将 VS Code 附加到该服务。首次使用前需运行 `dcc setup <dcc>` 完成 debugpy 安装。
 
 **注意**：debugpy 在首次 attach 时绑定端口，DCC 运行期间端口不可更改。若修改了 `debug.port` 配置，需重启 DCC 才能生效。
+
+> **Python 版本限制**：debugpy 仅支持 Python 3.x。附加调试器前会先 ping 目标 DCC 检测其 Python 版本；若运行在 Python 2.7（如 Maya ≤ 2020、3ds Max ≤ 2020），会提示“暂不支持 debugpy 调试”并中止，请改用 `Ctrl + Enter` 直接执行代码。
 
 ### 重载模块
 
@@ -60,7 +64,6 @@ pip install dcc-bridge
 ## 开发
 
 ```bash
-cd packages/vscode-extension
 npm install
 npm run compile
 ```

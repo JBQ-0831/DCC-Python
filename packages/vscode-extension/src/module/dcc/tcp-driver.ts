@@ -43,10 +43,11 @@ export class TCPDriver implements IDCCDriver {
     private pendingRequests: Map<string, (response: Response) => void> = new Map();
     private buffer: Buffer = Buffer.alloc(0);
     
-    constructor(config: IDCCConfig, dccName: string, dccType: string) {
+    constructor(config: IDCCConfig, dccName: string, dccType: string, pythonPath?: string) {
         this.config = config;
         this.dccName = dccName;
         this.dccType = dccType;
+        this.pythonPath = pythonPath;
     }
     
     connect(): Promise<boolean> {
@@ -125,7 +126,8 @@ export class TCPDriver implements IDCCDriver {
         nameVar: string,
         isDebugging: boolean
     ): Promise<IExecutionResult | null> {
-        console.log(`[TCPDriver] executeFile called: execFile=${execFile}, isDebugging=${isDebugging}`);
+        Logger.debug(`fn executeFile called: execFile=${execFile}, isDebugging=${isDebugging}`);
+
         // 通用 TCP 驱动直接发送 execute 请求
         return this.sendRequest('execute', {
             exec_file: execFile,
@@ -274,18 +276,17 @@ export class TCPDriver implements IDCCDriver {
      * 需要读取非标准结果字段的方法（如 ping）使用此方法。
      */
     private async sendRawRequest(method: string, params: Record<string, unknown>): Promise<Response | null> {
-        console.log(`[TCPDriver] sendRawRequest: method=${method}, hasSocket=${!!this.socket}, isConnected=${this.isConnectedFlag}`);
-        Logger.info(`[DEBUG] sendRawRequest: method=${method}, hasSocket=${!!this.socket}, isConnected=${this.isConnectedFlag}`);
+        Logger.debug(`sendRawRequest: method=${method}, hasSocket=${!!this.socket}, isConnected=${this.isConnectedFlag}`);
         
         // 如果连接断开，尝试自动重连
         if (!this.socket || !this.isConnectedFlag) {
-            Logger.info(`[DEBUG] sendRawRequest: attempting reconnect...`);
+            Logger.debug(`sendRawRequest: attempting reconnect...`);
             const reconnected = await this.connect();
             if (!reconnected) {
                 Logger.error("Not connected to DCC server and reconnection failed");
                 return null;
             }
-            Logger.info(`[DEBUG] sendRawRequest: reconnected successfully`);
+            Logger.debug(`sendRawRequest: reconnected successfully`);
         }
         
         const id = crypto.randomUUID().replace(/-/g, '_');

@@ -34,9 +34,21 @@ export async function reloadWorkspaceModules() {
     const successOutput = response.output.filter((line: string) => line.startsWith("Reloaded"));
 
     if (failedOutput.length <= 0 && successOutput.length > 0) {
-        const successMessage = successOutput[0];
-        vscode.window.setStatusBarMessage(`$(check) ${successMessage}`, 3500);
-        Logger.info(successMessage);
+        const lastIndex = successOutput.length - 1;
+        const lastMessage = successOutput[lastIndex];
+        // 状态栏显示最后一条,最后一条是: Reloaded 80 modules in 49.0ms
+        vscode.window.setStatusBarMessage(`$(check) ${lastMessage}`, 3500);
+        
+        // 遍历所有日志
+        successOutput.forEach((line, index) => {
+            if (index === lastIndex) {
+                // 最后一条用 info
+                Logger.info(line);
+            } else {
+                // 其余全部 debug
+                Logger.debug(line);
+            }
+        });
     }
     else if (!isCommandRegistered) {
         for (const line of failedOutput) {

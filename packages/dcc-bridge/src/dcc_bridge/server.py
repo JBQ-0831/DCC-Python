@@ -125,7 +125,7 @@ class _RequestHandlerBase(object):
             elif method == "reload":
                 workspace_folders = params.get("workspace_folders", [])
                 from .reload import reload as _reload
-
+                print("fn _process_request ,workspace_folders = {}".format(workspace_folders))
                 _reload(workspace_folders)
 
             elif method == "start_debugpy":

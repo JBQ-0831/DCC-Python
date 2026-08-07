@@ -6,7 +6,7 @@ import Logger from './module/logging';
 import * as execute from './script/execute';
 import { reloadWorkspaceModules } from './script/reload';
 import { attach } from './script/attach';
-import { DCCPythonDashboard, registerDashboardCommands } from './module/panel/dashboard';
+import { DCCPythonDashboard, registerDashboardCommands, DCCInstance } from './module/panel/dashboard';
 import { registerDCCSetupPanel } from './module/panel/dcc-setup-panel';
 import { getExtensionConfig, uriExists, resolvePythonCommand, runPythonCommand, runDCCBridgeCommand } from './module/utils';
 
@@ -25,12 +25,9 @@ export async function activate(context: vscode.ExtensionContext) {
         await vscode.workspace.fs.delete(tempDir, { recursive: true, useTrash: false });
     }
 
-    // 先注册状态栏（使用默认配置），再尝试自动连接
+    // 先注册状态栏（使用默认配置）
     const dccManager = DCCManager.getInstance();
     dccManager.registerStatusBarItem(context);
-
-    // 启动时自动发现并连接到第一个运行中的 DCC 实例（会覆盖默认的 driver）
-    autoConnectToFirstInstance();
 
     // 注册核心命令
     context.subscriptions.push(
@@ -47,9 +44,12 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // 注册 Dashboard 树数据提供器及相关命令
     const dashboard = DCCPythonDashboard.getInstance();
-    vscode.window.registerTreeDataProvider('dccPythonDashboard', dashboard);
+    dashboard.bindTreeView();
     context.subscriptions.push(dashboard);
     registerDashboardCommands(context);
+
+    // Dashboard 注册完成后再自动连接并选中第一个实例（确保 TreeView 引用已就绪）
+    autoConnectToFirstInstance();
 
     // 注册 DCC Setup WebView 面板
     registerDCCSetupPanel(context);
@@ -88,7 +88,7 @@ async function autoConnectToFirstInstance() {
             return;
         }
         const parsed = JSON.parse(result.stdout);
-        const instances: { dcc_name: string; host: string; port: number }[] =
+        const instances: DCCInstance[] =
             parsed && typeof parsed === 'object' && 'instances' in parsed
                 ? parsed.instances
                 : Array.isArray(parsed) ? parsed : [];
@@ -104,13 +104,9 @@ async function autoConnectToFirstInstance() {
         }
         Logger.info(`Auto-connecting to ${first.dcc_name} @ ${first.host}:${first.port}`);
 
-        const dccManager = DCCManager.getInstance();
-        dccManager.setDriverByInstance(first.host, first.port, first.dcc_name);
-        await dccManager.connect();
-
-        vscode.window.showInformationMessage(
-            `已自动连接到 ${first.dcc_name} (${first.host}:${first.port})`
-        );
+        // 直接走与手动点击列表项完全相同的「选中」路径：自动连接 + 高亮，体验一致
+        const dashboard = DCCPythonDashboard.getInstance();
+        await dashboard.selectInstance(first);
     } catch {
         // 静默失败，让用户通过 Dashboard 手动选择
     }

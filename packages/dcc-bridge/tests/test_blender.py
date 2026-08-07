@@ -402,10 +402,18 @@ class TestMultiVersionSetup:
 class TestGetTargetVersions:
     """测试 _get_target_versions 的版本过滤逻辑"""
 
-    def test_no_filter_without_min_version(self, setup_instance, populated_registry):
-        """min_supported_version 为 None，应返回所有已安装版本"""
+    def test_keeps_2_7_plus_versions(self, setup_instance, populated_registry):
+        """min_supported_version 为 '2.7'，应保留 2.7+ 的已安装版本（4.2/4.5）"""
         versions = setup_instance._get_target_versions()
         assert "4.2" in versions
+        assert "4.5" in versions
+
+    def test_filters_below_2_7(self, setup_instance, mock_registry):
+        """低于 2.7 的版本（如 2.65）应被过滤，2.79/4.5 保留"""
+        setup_instance.discover_versions = lambda: ["2.65", "2.79", "4.5"]
+        versions = setup_instance._get_target_versions()
+        assert "2.65" not in versions
+        assert "2.79" in versions
         assert "4.5" in versions
 
     def test_explicit_version_not_filtered(self, setup_instance, populated_registry):

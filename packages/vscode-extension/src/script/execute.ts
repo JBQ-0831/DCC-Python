@@ -38,7 +38,7 @@ async function executeFile(fileUri: vscode.Uri, execOrigin: string) {
     const dccManager = DCCManager.getInstance();
     const driver = dccManager.getCurrentDriver();
 
-    Logger.info(`[DEBUG] executeFile: isDebugging=${isDebugging}, hasDriver=${!!driver}, file=${fileUri.fsPath}`);
+    // Logger.debug(`executeFile: isDebugging=${isDebugging}, hasDriver=${!!driver}, file=${fileUri.fsPath}`);
 
     if (!driver) {
         await promptStartServer();

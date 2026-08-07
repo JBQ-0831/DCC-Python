@@ -72,7 +72,9 @@ def add_print_for_last_expr(parsed_code):
         if isinstance(last_expr, ast.Expr):
             temp_var_name = "_"
 
-            # 位置信息仅在 py3 的 AST 构造器中可用（py2 构造器不接受 lineno 等）
+            # py2 下 ast 节点本就支持 lineno 字段，但此处手工构造的新节点故意留空
+            # （pos={}），统一交给 execute_code 里 compile 前的
+            # ast.fix_missing_locations(parsed_code) 一次性补齐，避免 py2/py3 双分支重复。
             pos = {}
             if sys.version_info >= (3, 8):
                 pos = {
@@ -119,6 +121,10 @@ def add_print_for_last_expr(parsed_code):
 
     return parsed_code
 
+def safe_str(s):
+    if isinstance(s, bytes):
+        return s.decode("utf-8", errors="replace")
+    return s
 
 def format_exception(exception_in, filename, code, tb=None, num_ignore_tracebacks=0):
     if tb is None:
@@ -169,9 +175,8 @@ def format_exception(exception_in, filename, code, tb=None, num_ignore_traceback
                     exception.text = line
 
         text = "Traceback (most recent call last):\n"
-        text += "".join(traceback.format_list(traceback_stack))
-        text += "".join(traceback.format_exception_only(type(exception), exception))
-
+        text += "".join(safe_str(line) for line in traceback.format_list(traceback_stack))
+        text += "".join(safe_str(line) for line in traceback.format_exception_only(type(exception), exception))
         messages.append(text)
 
         # py2 异常无 __context__ 属性，getattr 兜底返回 None
@@ -232,7 +237,19 @@ def execute_code(code, filename, debugging, exec_globals=None):
 
     parsed_code = add_print_for_last_expr(parsed_code)
 
+    # 兜底防御（选中单行执行线）：若共享 globals 里残留了非法的 __package__
+    # （空串 "" 或 非 str 非 None），本次执行前清掉，让 import 走 __name__ 缺省。
+    # 只动 __package__ 这一个键，绝不碰用户变量，保证「选中单行记住上次变量」需求不受影响。
+    _pkg = exec_globals.get("__package__")
+    if _pkg is not None and (not isinstance(_pkg, str) or _pkg == ""):
+        exec_globals.pop("__package__", None)
+
     try:
+        # py2/py3 通用、幂等：给 add_print_for_last_expr 手工改写出的 AST 节点
+        # 补上缺失的 lineno（py3 下节点本就带位置信息，无影响；py2 节点无
+        # col_offset 字段会被自动跳过）。Python 2.7 的 compile() 强制要求每个
+        # stmt 节点有 lineno，否则抛「required field "lineno" missing from stmt」。
+        ast.fix_missing_locations(parsed_code)
         exec(compile(parsed_code, filename, "exec"), exec_globals)
     except Exception:
         exc_type, exc_val, exc_tb = sys.exc_info()
@@ -252,7 +269,16 @@ def main(exec_file, exec_origin, name_var=None, is_debugging=False):
     elif "__name__" in exec_globals:
         exec_globals.pop("__name__")
 
-    exec_globals["__package__"] = find_package(exec_origin)
+    # __package__ 仅对包内脚本有意义；顶层脚本（不在任何 sys.path 包前缀下）
+    # find_package 返回 ""。Autodesk 魔改的 Maya 2018 (py2.7) 把 __package__ = ""
+    # 也判为非法，会抛 ValueError: __package__ set to non-string。故空串时直接 pop
+    # 掉该键，让 import 机制走 __name__ 兜底。注意：只动 __package__ 这一个键，
+    # 绝不碰用户变量（共享字典 __VsCodeVariables__ 里的 a/b/c 等原封不动保留）。
+    pkg = find_package(exec_origin)
+    if pkg:
+        exec_globals["__package__"] = pkg
+    else:
+        exec_globals.pop("__package__", None)
 
     with io.open(exec_file, "r", encoding="utf-8") as vscode_in_file:
         execute_code(

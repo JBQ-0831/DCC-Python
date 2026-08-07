@@ -52,8 +52,10 @@ class BlenderSetup(DCCSetup):
     """
 
     dcc_name = "blender"
-    # Blender 版本号为 major.minor，不做最低版本过滤
-    min_supported_version = None
+    # Blender 最低支持 2.7+（2.79 及 2.80 之后的所有版本均可注入）。
+    # base.py 用字符串比较 v >= min_supported_version，对点分式版本号
+    # （2.79 / 2.80 / 3.x / 4.x）均能正确保留 2.7 及以上、过滤 2.6x 及更早。
+    min_supported_version = "2.7"
 
     def discover_versions(self) -> list[str]:
         """从 HKLM\\SOFTWARE\\Classes 下匹配 blender.<version> 子键，提取版本号"""

@@ -31,12 +31,14 @@ dcc run file /path/to/script.py
 3. 使用 `DCC Python ToolKit: Open Dashboard` 查看运行中的 DCC 实例并选择目标。
 4. 按 `Ctrl + Enter` 执行代码，`Ctrl + Shift + P` 搜索 `DCC Python ToolKit` 查看更多命令。
 
-## 已测试的 DCC
+## 已支持的 DCC
 
-- Maya（2020+）
-- 3ds Max（2021+）
+- Maya（2018+，含 Python 2.7 版本）
+- 3ds Max（2019+，含 Python 2.7 版本）
 - Substance Painter
 - Substance Designer
+- Houdini（19.0+）
+- Blender（2.7+）
 
 ## 架构
 
@@ -46,7 +48,7 @@ vscode-maya-python/
 │   ├── dcc-bridge/          # Python 核心包（可独立发布到 PyPI）
 │   └── vscode-extension/    # VS Code 插件
 ├── media/                   # 演示素材
-└── test/                    # 遗留的 DCC 测试脚本
+└── test_case/               # 遗留的 DCC 测试脚本
 ```
 
 ```mermaid

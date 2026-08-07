@@ -89,7 +89,7 @@ export class DCCManager {
     /**
      * 根据 host/port 切换当前驱动
      */
-    setDriverByInstance(host: string, port: number, dccType: string): void {
+    setDriverByInstance(host: string, port: number, dccType: string, pythonPath?: string): void {
         if (this.driver) {
             this.driver.disconnect();
         }
@@ -102,7 +102,7 @@ export class DCCManager {
             driverType: 'tcp-json-rpc'
         };
 
-        this.driver = new TCPDriver(driverConfig, normalizedType, normalizedType.toUpperCase());
+        this.driver = new TCPDriver(driverConfig, normalizedType, normalizedType.toUpperCase(), pythonPath);
         this.updateStatusBar();
     }
     
