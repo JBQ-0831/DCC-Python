@@ -484,6 +484,35 @@ with resolve_client(dcc_name="maya") as client:
 - **debugpy 不支持 Python 2.x**，因此 `dcc setup` 在检测到目标 DCC 的 Python 为 2.x 时，仅注入自启动脚本、**不安装 debugpy**；`dcc unsetup` 同样跳过 debugpy 卸载。
 - 在 py2 宿主中运行前，服务会自动把 `stdout/stderr` 替换为自适应转码包装流（`dcc_bridge.compat._Py2UnicodeWriter`），避免 `print` 含非 ASCII 字节时直接崩溃。
 
+### py2 中文报错的正确姿势
+
+在 Python 2.7 的 DCC 中执行含中文的脚本时，需注意以下两点：
+
+1. **`print` 在 py2.7 中是语句，不能当函数用在 `lambda` 里**
+
+   ```python
+   # ✗ py2.7 语法错误（SyntaxError: invalid syntax）
+   button.clicked.connect(lambda: print(u"点击了"))
+
+   # ✓ 把语句挪进函数，lambda 只调用函数
+   def _log(msg):
+       print(msg)
+   button.clicked.connect(lambda: _log(u"点击了"))
+
+   # ✓ 或直接连具名处理函数
+   def _on_clicked():
+       print(u"点击了")
+   button.clicked.connect(_on_clicked)
+   ```
+
+   原因：`lambda` 冒号后只能跟表达式（expression），而 py2 的 `print` 是语句（statement）。若想直接用 `print(...)` 形式，文件顶部须加 `from __future__ import print_function`。
+
+2. **执行失败时能看到完整回溯（含中文源码行）**
+
+   服务在序列化响应前，会把 `traceback` 等字符串中的字节统一归一为 `unicode`（`dcc_bridge.protocol._ensure_unicode`）。若不加这层归一，py2 的 `json.dumps(ensure_ascii=False)` 遇到回溯里嵌着的中文源码字节会尝试用 ASCII 解码并崩溃，导致响应发不出去，用户只能看到 `'ascii' codec can't decode` 这类无意义的二次错误，而看不到真正的 `SyntaxError`。
+
+   > 排查口诀：**报错若出现在 `send` / `encode` / `dump` 等序列化环节，多半是「二次崩溃」**——真正的异常早已发生，只是被这条链路吞掉了。此时应先确认执行失败的原因，而非纠缠编码报错本身。
+
 ### 自启动注入如何避免双启动
 
 DCC 在启动时会**递归自动执行**其自启动目录下的所有脚本。如果主脚本直接放在自启动根目录，再加上一个 launcher，服务会被启动两次。为规避此问题：

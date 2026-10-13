@@ -43,7 +43,7 @@ dcc run file /path/to/script.py
 ## 架构
 
 ```
-vscode-maya-python/
+vscode-dcc-python/
 ├── packages/
 │   ├── dcc-bridge/          # Python 核心包（可独立发布到 PyPI）
 │   └── vscode-extension/    # VS Code 插件

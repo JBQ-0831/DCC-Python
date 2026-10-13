@@ -1,5 +1,30 @@
 # Change Log
 
+## [1.3.3] - 2026-10-13
+
+### 文档
+- 插件 README：新增「环境要求」章节，明确最低 VS Code 版本为 1.106.0
+- 插件 README：配置表补充 `environment.addWorkspaceToPath`
+- 插件 README：开发章节补充 `package` / `vsix` / `vsix:dry` 打包命令
+- dcc-bridge README：新增「py2 中文报错的正确姿势」，说明 `print` 语句在 py2 的 lambda 中不可用，以及真实错误被序列化错误掩盖时的排查思路
+- 根 README：架构图目录名由过时的 `vscode-maya-python/` 更正为 `vscode-dcc-python/`
+
+## [1.3.2] - 2026-10-13
+
+### 修复
+- **py2 中文执行失败时看不到真实错误**：`dcc_bridge.protocol` 新增 `_ensure_unicode`，在序列化前把 `traceback` 等字符串中的字节统一归一为 `unicode`。此前 py2 下 `json.dumps(ensure_ascii=False)` 遇到回溯中嵌着的中文源码字节会尝试用 ASCII 解码并崩溃（`UnicodeDecodeError`），导致响应发不出去，真实的 `SyntaxError` 被 `'ascii' codec can't decode` 完全掩盖。现可正常显示完整回溯与中文源码行。
+- 服务端发送失败日志补充 `traceback.format_exc()`，避免二次崩溃再次掩盖原因。
+
+### 变更
+- **最低 VS Code 版本由 1.108.0 降至 1.106.0**，可在低版本 VS Code 中安装。
+- 入口点文件选择改用 1.106 原生 API（`asRelativePath` + 字符串数组 QuickPick + `Uri.joinPath`），替换 `QuickPickItem.resourceUri` 与 `QuickPickOptions.prompt` 等更高版本专属调用。
+- `dcc-bridge` 开发依赖新增 `ovsx`，用于 Open VSX 发布。
+- `.vscodeignore` 排除 `.codebuddy` / `.workbuddy`，避免本地工作区记忆文件被打进安装包。
+
+### 变更（发布流水线）
+- VS Code 插件发布目标调整为 **VS Marketplace + Open VSX 双商店**，插件只构建一次、两商店复用同一产物，确保版本一致。
+- CLI 仅发布到 PyPI 正式环境，废弃此前将 TestPyPI / Open VSX 视作测试通道的设计。
+
 ## [1.3.1] - 2026-07-29
 
 ### 修复

@@ -2,6 +2,15 @@
 
 通用 Python DCC 开发工具，支持 Maya、3ds Max、Substance Painter、Substance Designer、Houdini、Blender 等具备 Python 脚本能力的 DCC 软件。
 
+## 环境要求
+
+| 项 | 要求 |
+|---|---|
+| VS Code | **1.106.0 或更高** |
+| DCC 端 Python | 支持 Python 2.7 与 3.x（Maya 2018+ / 3ds Max 2019+ 起的版本） |
+
+> 低于 VS Code 1.106.0 无法安装本插件。若你的 VS Code 版本较旧，请升级到 1.106.0 或更高版本。
+
 ## 依赖
 
 本插件要求安装 `dcc-bridge` Python 包：
@@ -52,6 +61,7 @@ pip install dcc-bridge
 | `dcc-python-toolkit.pythonPath` | 指定 Python 解释器路径，用于检测 `dcc-bridge` 包；留空则自动检测 | `""` |
 | `dcc-python-toolkit.server.host` | DCC 服务地址 | `127.0.0.1` |
 | `dcc-python-toolkit.server.port` | DCC 服务端口 | `7002` |
+| `dcc-python-toolkit.environment.addWorkspaceToPath` | 是否将工作区路径添加到 Python 的 `sys.path` | `true` |
 | `dcc-python-toolkit.execute.name` | 执行代码时 `__name__` 变量的值 | `__main__` |
 | `dcc-python-toolkit.execute.entryPoint` | 入口点脚本路径 | `""` |
 | `dcc-python-toolkit.execute.entryPointReload` | 执行入口点前是否重载模块 | `true` |
@@ -65,8 +75,21 @@ pip install dcc-bridge
 
 ```bash
 npm install
+
+# 类型检查 + lint + esbuild 打包到 dist/extension.js
 npm run compile
+
+# 生产构建（压缩并去掉 sourcemap）
+npm run package
+
+# 打出本地安装包 vsix（产物在 dist/）
+npm run vsix
+
+# 只做校验不实际打包
+npm run vsix:dry
 ```
+
+> `npm run vsix` 会先执行 `check-types` 与 `lint`，任一环节不通过即中止，因此该命令同时是发布前的本地门禁。
 
 ## 许可证
 
