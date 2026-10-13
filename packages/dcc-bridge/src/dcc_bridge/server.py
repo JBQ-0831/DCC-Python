@@ -78,6 +78,8 @@ class _RequestHandlerBase(object):
             conn.send(encode_message(response))
         except Exception as e:
             self.logger.error("Failed to send response: " + str(e))
+            # 把发送失败自身的堆栈也打出来，避免“二次崩溃”再次掩盖真实原因
+            self.logger.error(traceback.format_exc())
         finally:
             done_event.set()
 

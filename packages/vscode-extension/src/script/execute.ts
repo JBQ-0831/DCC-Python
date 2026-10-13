@@ -148,26 +148,22 @@ export async function executeEntryPoint() {
     }
     else {
         const files = await vscode.workspace.findFiles('**/*.py', '**/env/**');
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri;
 
-        const items: vscode.QuickPickItem[] = files.map(file => {
-            return {
-                label: '',
-                resourceUri: file,
-                iconPath: vscode.ThemeIcon.File
-            };
-        });
+        // 兼容 VS Code 1.106：QuickPickItem.resourceUri 与 QuickPickOptions.prompt
+        // 均为更高版本才引入的 API，故这里直接展示工作区相对路径字符串，
+        // 选中后再用 joinPath 还原成绝对 Uri。
+        const items = files.map(file => vscode.workspace.asRelativePath(file, false));
 
         const selected = await vscode.window.showQuickPick(items, {
-            prompt: "Select a Python file to execute as the entry point",
-            canPickMany: false,
-            title: "Execute Entry Point",
+            title: "Select a Python file to execute as the entry point",
         });
 
-        if (!selected?.resourceUri) {
+        if (!selected || !workspaceRoot) {
             return;
         }
 
-        cachedEntryPointPath = selected.resourceUri;
+        cachedEntryPointPath = vscode.Uri.joinPath(workspaceRoot, selected);
         fileUri = cachedEntryPointPath;
     }
 

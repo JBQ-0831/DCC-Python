@@ -8,10 +8,16 @@ on:
 env:
   PYTHON_VERSION: '3.12'
   NODE_VERSION: '22'
+  VSIX_NAME: 'dcc-python-toolkit.vsix'
 
 jobs:
   # 检测发布通道：纯数字版本 x.y.z → release，含字母（如 x.y.zb1）→ beta
-  
+  #
+  # 通道策略（项目已稳定，不再拿 TestPyPI / Open VSX 当测试通道）：
+  # - release：CLI → PyPI 正式；VS Code 插件 → VS Marketplace + Open VSX 双商店
+  # - beta   ：CLI → PyPI 正式；VS Code 插件 → VS Marketplace + Open VSX 双商店
+  #   （beta 仅体现在版本号标记上，仍走正式商店，便于灰度安装）
+
   detect:
     runs-on: ubuntu-latest
     outputs:
@@ -62,10 +68,9 @@ jobs:
           fi
           echo "OK: All versions match ($TAG_VER)"
 
-  # ======== Release 发布（PyPI + VS Marketplace）========
-  publish-release:
+  # ======== CLI 发布到 PyPI（release 与 beta 均走 PyPI 正式）========
+  publish-cli:
     needs: [detect, build]
-    if: needs.detect.outputs.channel == 'release'
     runs-on: ubuntu-latest
     environment: Release Environments
     steps:
@@ -83,56 +88,19 @@ jobs:
         run: uv build
         working-directory: packages/dcc-bridge
 
-      - name: Publish Python to PyPI
+      - name: Publish CLI to PyPI
         run: uv publish
         working-directory: packages/dcc-bridge
         env:
           UV_PUBLISH_TOKEN: ${{ secrets.PYPI }}
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install npm dependencies
-        run: npm ci
-        working-directory: packages/vscode-extension
-
-      - name: Build VS Code extension
-        run: npx @vscode/vsce package --no-dependencies -o ./dist/dcc-python-toolkit.vsix
-        working-directory: packages/vscode-extension
-
-      - name: Publish VS Code to VS Marketplace
-        run: npx @vscode/vsce publish --packagePath ./dist/dcc-python-toolkit.vsix --pat ${{ secrets.VSMARKETPLACE }}
-        working-directory: packages/vscode-extension
-
-  # ======== Beta 发布（TestPyPI + Open VSX）========
-  publish-beta:
+  # ======== VS Code 插件打包（一次构建，两个商店复用）========
+  build-extension:
     needs: [detect, build]
-    if: needs.detect.outputs.channel == 'beta'
     runs-on: ubuntu-latest
-    environment: Test Environments
     steps:
       - uses: actions/checkout@v5
 
-      - name: Setup Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Setup uv
-        uses: astral-sh/setup-uv@v6
-
-      - name: Build Python package
-        run: uv build
-        working-directory: packages/dcc-bridge
-
-      - name: Publish Python to TestPyPI
-        run: uv publish --publish-url https://test.pypi.org/legacy/
-        working-directory: packages/dcc-bridge
-        env:
-          UV_PUBLISH_TOKEN: ${{ secrets.TESTPYPI }}
-
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
@@ -143,9 +111,52 @@ jobs:
         working-directory: packages/vscode-extension
 
       - name: Build VS Code extension
-        run: npx @vscode/vsce package --no-dependencies -o ./dist/dcc-python-toolkit.vsix
+        run: npx @vscode/vsce package --no-dependencies -o ./dist/${{ env.VSIX_NAME }}
         working-directory: packages/vscode-extension
 
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vsix-package
+          path: packages/vscode-extension/dist/${{ env.VSIX_NAME }}
+          if-no-files-found: error
+
+  # ======== 发布到 VS Marketplace（正式商店）========
+  publish-vscode-marketplace:
+    needs: [detect, build, build-extension]
+    runs-on: ubuntu-latest
+    environment: Release Environments
+    steps:
+      - name: Download VSIX artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: vsix-package
+          path: ./dist
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Publish VS Code to VS Marketplace
+        run: npx @vscode/vsce publish --packagePath ./dist/${{ env.VSIX_NAME }} --pat ${{ secrets.VSMARKETPLACE }}
+
+  # ======== 发布到 Open VSX（正式商店）========
+  publish-openvsx:
+    needs: [detect, build, build-extension]
+    runs-on: ubuntu-latest
+    environment: Release Environments
+    steps:
+      - name: Download VSIX artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: vsix-package
+          path: ./dist
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
       - name: Publish VS Code to Open VSX
-        run: npx ovsx publish ./dist/dcc-python-toolkit.vsix --pat ${{ secrets.OPENVSX }}
-        working-directory: packages/vscode-extension
+        run: npx ovsx publish ./dist/${{ env.VSIX_NAME }} --pat ${{ secrets.OPENVSX }}

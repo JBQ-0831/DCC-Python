@@ -13,6 +13,8 @@
 import json
 import struct
 
+from .compat import _decode_py2_bytes
+
 
 class Request(object):
     """请求对象
@@ -76,6 +78,26 @@ def _to_bytes(s):
     return s.encode("utf-8")
 
 
+def _ensure_unicode(obj):
+    """递归把 py2 的 str(bytes) 归一为 unicode，确保 json.dumps(ensure_ascii=False)
+    在 py2 下不会因为遇到含非 ASCII 字节的 str 而用 ASCII 解码崩溃。
+
+    根因：py2 的 json C 编码器假设输入是 unicode，一旦值是 str(字节)且含非 ASCII，
+    会在内部用默认 ASCII 编码去解码这段字节，抛出 UnicodeDecodeError，导致整个响应
+    发不出去、真实错误(如含中文源码的 SyntaxError traceback)被彻底掩盖。
+
+    py3 下 str 即 unicode、仅 bytes 走解码，行为一致且安全；本函数在两个版本都无所谓
+    副作用。复用 compat._decode_py2_bytes 的 utf-8 -> gbk -> latin-1 -> replace 兜底。
+    """
+    if isinstance(obj, bytes):
+        return _decode_py2_bytes(obj)
+    if isinstance(obj, dict):
+        return {_ensure_unicode(k): _ensure_unicode(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_ensure_unicode(v) for v in obj]
+    return obj
+
+
 def encode_message(data):
     """
     将数据编码为协议格式的字节串
@@ -90,6 +112,11 @@ def encode_message(data):
         payload = data.to_dict()
     else:
         payload = data
+
+    # 归一化：py2 下 payload 里的 str(字节)值(如 traceback.format_exc() 返回的
+    # 含中文源码的字节串)会让 json.dumps(ensure_ascii=False) 用 ASCII 解码崩溃，
+    # 进而掩盖真实错误。先递归转成 unicode，保证任何字符串值都能安全序列化。
+    payload = _ensure_unicode(payload)
 
     # ensure_ascii=False 让中文等直接以 UTF-8 多字节输出；py2 下 json.dumps
     # 返回 str(bytes)，py3 下返回 str(unicode)，统一由 _to_bytes 归一为 bytes。

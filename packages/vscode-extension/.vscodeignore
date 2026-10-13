@@ -7,3 +7,14 @@ esbuild.js
 eslint.config.mjs
 tsconfig.json
 package-lock.json
+
+# AI 工作记忆 / 本地工作区数据：不应随插件分发给用户
+.codebuddy/**
+.workbuddy/**
+.codebuddy.workbuddy
+**/.codebuddy/**
+**/.workbuddy/**
+
+# 本地临时产物
+dist/*.vsix
+**/*.log
